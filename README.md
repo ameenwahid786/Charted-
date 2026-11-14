@@ -8,7 +8,7 @@ Many beginners buy or hold stocks without knowing how risky they are, which leav
 
 A beginner enters a stock they plan to hold or buy. The tool returns the estimated chance that its close falls 10% or more below today’s price within 20 trading days as a risk metric, with a plain-English explanation of what is driving that number and how it compares with the typical stock. It helps someone see the risk before they commit their money, so they can make a safer decision. 
 
-We compare our model against a simple baseline, a rule that warns when a stock’s 20-day volatility is in the top 20%, to see which predicts these drops better.
+We compare our model against a simple baseline, a rule that warns when a stock’s 20-day volatility is in the top 20%, to see which predicts these drops better, using a PR-AUC.
 
 This project is a prototype and is not financial advice
 
