@@ -31,8 +31,8 @@ END = "2026-03-01"
 SECTORS = {
     "Technology": ["AAPL", "MSFT", "NVDA", "ORCL", "CSCO", "INTC", "ADBE", "CRM",
                    "QCOM", "TXN", "IBM", "ACN"],
-    "Communication": ["GOOGL", "T", "VZ", "CMCSA", "DIS", "NFLX", "EA", "OMC",
-                      "IPG", "TTWO"],
+    "Communication": ["GOOGL", "T", "VZ", "CMCSA", "DIS", "NFLX", "TMUS", "OMC",
+                      "LYV", "TTWO"],
     "Consumer Discretionary": ["AMZN", "HD", "MCD", "NKE", "SBUX", "LOW", "TGT",
                                "BKNG", "TJX", "F"],
     "Consumer Staples": ["PG", "KO", "PEP", "WMT", "COST", "CL", "MO", "KMB",

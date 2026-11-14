@@ -18,7 +18,7 @@ python src/01_download.py          # about 1–2 minutes; re-run if Yahoo rate-l
 python src/01_download.py --check  # offline check: must print "DONE"
 ```
 
-Only one person needs to download. Zip `data/raw/` and share it so everyone works from the same prices.
+Only one person needs to download. They commit `data/raw/` and push it to GitHub; everyone else runs `git pull` so the whole team works from the same prices.
 
 ## Loading data in other modules
 
