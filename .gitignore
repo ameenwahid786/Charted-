@@ -3,3 +3,7 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+# rebuilt in seconds by src/02-04
+data/labels.parquet
+data/features.parquet
+data/panel.parquet

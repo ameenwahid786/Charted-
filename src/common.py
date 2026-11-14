@@ -86,3 +86,38 @@ def load_all(symbols=None) -> pd.DataFrame:
         frames.append(df)
     out = pd.concat(frames, ignore_index=True)
     return out.sort_values(["ticker", "date"]).reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# Modules 2-5: labels, features, split, baselines
+# ---------------------------------------------------------------------------
+LABELS_PATH = DATA_DIR / "labels.parquet"      # module 2 output (rebuildable)
+FEATURES_PATH = DATA_DIR / "features.parquet"  # module 3 output (rebuildable)
+
+HORIZON = 20      # trading days to look ahead
+DROP = -0.10      # a "crash" = lowest close in the window is >= 10% below today
+
+# Fixed split (set before seeing results). GAP trading days are dropped at the
+# end of train and val so no training label peeks into the next period.
+TRAIN = ("2010-01-01", "2018-12-31")
+VAL = ("2019-01-01", "2020-12-31")
+TEST = ("2021-01-01", "2025-12-31")
+GAP = HORIZON
+
+# Features the model is allowed to use (all computed from data up to day t).
+FEATURES = [
+    "ret_5", "ret_20", "ret_60",
+    "vol_20", "vol_60", "vol_ratio_20_60",
+    "dist_ma50", "dist_ma200", "drawdown_252",
+    "rsi_14", "volume_ratio_20",
+    "vix", "vix_chg_5",
+    "mkt_ret_20", "mkt_vol_20", "beta_60",
+]
+
+
+def load_panel() -> pd.DataFrame:
+    return pd.read_parquet(PANEL_PATH)
+
+
+def load_preds() -> pd.DataFrame:
+    return pd.read_parquet(PREDS_PATH)
