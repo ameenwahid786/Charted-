@@ -38,7 +38,76 @@ Our v1 model only used the LightGBM model, and it matched the simple volatility 
 ## Results
 We used a Precision-Recall Area Under the Curve(PR-AUC) to evaluate our model against the baselines. Our results are as follows:
 
-Our baseline scored X. Our model scored Y on held-out test data.
+**What we predict:** will the stock's close fall 10% or more below today's close within the next 20 trading days? About 12% of days are "yes". Higher PR-AUC is better; guessing at random scores about 0.12. We use PR-AUC rather than accuracy because a model that never warns is 88% accurate and catches no crashes.
+
+**Baselines:**
+- **Volatility rule (main baseline):** a stock that swings a lot is more likely to drop 10%.
+- **200-day average rule:** warns when the price is below its 200-day average.
+- **Never warn:** never gives a warning.
+
+### Model versions
+
+| | v1 | v2 | v3 (final) |
+|---|---|---|---|
+| Model | LightGBM, 16 raw features | v1 retrained on more years | Volatility rule + LightGBM corrections, 16 features scaled by volatility and ranked against other stocks |
+| Trained on | 2010–18 | 2010–20 | 2010–18 |
+| Chosen how | Tuned on 2019–20 validation | Declared after seeing v1's test result | Best of 7 candidates, on validation only |
+| Validation 2019–20 (vol rule 0.218) | 0.236 | n/a | **0.251** |
+| Test 2021–25, 99 stocks (vol rule 0.191) | 0.192 (tie) | 0.182 (worse) | 0.204 (third look, disclosed) |
+| Fresh holdout 1, 49 unseen stocks (vol rule 0.216) | 0.217 | not run | **0.233** |
+| Fresh holdout 2, 95 unseen stocks (vol rule 0.169) | 0.180 | not run | **0.183** |
+
+### Fresh holdout 1: 49 stocks never used anywhere, 2021–25 (main result)
+
+| Method | PR-AUC | Precision | Recall | Accuracy |
+|---|---|---|---|---|
+| **Model v3** | **0.233** | 0.196 | **0.610** | 0.654 |
+| Volatility rule | 0.216 | 0.198 | 0.596 | 0.663 |
+| Model v1 | 0.217 | 0.191 | 0.563 | 0.662 |
+| 200-day average rule | 0.145 | 0.153 | 0.411 | 0.657 |
+| Never warn | 0.120 | 0 | 0 | **0.880** |
+
+- **Resampling test:** we redrew the data by month 1,000 times. v3 beats the volatility rule in 98.8% of redraws. Average gap +0.017 (95% range +0.004 to +0.029).
+- v3 won 4 of 5 years (it lost 2021 by 0.001) and had the higher score on 21 of the 49 stocks.
+- v3 beats the 200-day rule in 100% of redraws.
+
+### Fresh holdout 2: 95 more unseen stocks, 2021–25 (claim registered before running)
+
+| Method | PR-AUC | Precision | Recall |
+|---|---|---|---|
+| **Model v3** | **0.183** | **0.182** | **0.524** |
+| Volatility rule | 0.169 | 0.172 | 0.461 |
+| Model v1 | 0.180 | 0.180 | 0.492 |
+| 200-day average rule | 0.151 | 0.157 | 0.473 |
+| Never warn | 0.125 | 0 | 0 |
+
+- **Resampling test:** v3 wins 99.8% of redraws (95% range +0.007 to +0.022).
+- v3 won 5 of 5 years and had the higher score on 39 of the 95 stocks.
+
+### Original test set: 99 stocks, 2021–25
+
+| Method | PR-AUC | Precision | Recall |
+|---|---|---|---|
+| Model v1 | 0.192 | 0.190 | 0.505 |
+| Model v2 | 0.182 | 0.185 | 0.530 |
+| Volatility rule | 0.191 | 0.190 | 0.506 |
+| 200-day average rule | 0.138 | 0.142 | 0.428 |
+| Never warn | 0.119 (accuracy 0.881) | 0 | 0 |
+| Model v3 (third look) | 0.204 | n/a | n/a |
+
+### v4 attempt
+We registered 4 more ideas in advance, built on better volatility estimates. None beat v3 on validation (best 0.241 vs 0.251), so v3 stayed as the final model.
+
+### Backtest: equal weight, a stock is held as cash while its warning is on
+
+| Fresh holdout 1, 2021–25 | Total return | Worst fall (max drawdown) | Time in cash |
+|---|---|---|---|
+| Buy and hold | **+123%** | −17.6% | 0% |
+| 200-day rule | +50% | −11.4% | 32% |
+| Volatility rule | +45% | −6.4% | 36% |
+| Model v3 | +37% | −6.8% | 37% |
+
+Following the warnings cut the worst fall from −17.6% to under −7%, but it lost to simply holding, because the stocks recovered while the money sat in cash.
 
 Although our model outperformed the baselines, it still has its limitations:
 
@@ -53,3 +122,27 @@ Although it would be hard to significantly improve the model's performance, some
 - Addressing survivorship bias by reconstructing historical stock-index membership, and including companies that fell out or were delisted. Training the model on data including these stocks would produce a more representative assessment of historical market risk, improving its performance.
 
 ## Sources
+
+**Data**
+- **Yahoo Finance**, via the `yfinance` Python library: daily prices for 99 large US stocks plus 144 holdout stocks, the S&P 500 (^GSPC) and the VIX, 2009–2026. https://finance.yahoo.com and https://github.com/ranaroussi/yfinance
+- **Google News RSS search**, for the News page headlines (free, no key). https://news.google.com
+
+**Pretrained models:** none. All models were trained from scratch on the data above.
+
+**Libraries and tools**
+- LightGBM (gradient-boosted trees): https://lightgbm.readthedocs.io. Ke et al., "LightGBM: A Highly Efficient Gradient Boosting Decision Tree", NeurIPS 2017.
+- scikit-learn (PR-AUC, precision/recall, logistic-regression calibration): https://scikit-learn.org
+- pandas, NumPy, SciPy, PyArrow: https://pandas.pydata.org, https://numpy.org, https://scipy.org, https://arrow.apache.org
+- Streamlit and Streamlit Community Cloud (web app and hosting): https://streamlit.io
+- Plotly (interactive charts): https://plotly.com/python
+- IBM Plex Sans (font): https://fonts.google.com/specimen/IBM+Plex+Sans
+
+**Methods we drew on**
+- Platt scaling, for turning the volatility rule into a probability: Platt, J. (1999), "Probabilistic Outputs for Support Vector Machines".
+- Gaps between train, validation and test to stop overlapping labels leaking: López de Prado, M. (2018), *Advances in Financial Machine Learning*.
+- Month-block bootstrap for the significance test: Künsch, H. (1989), "The Jackknife and the Bootstrap for General Stationary Observations".
+
+**AI tools**
+- **Claude (Anthropic)**, through Claude Code, helped write the code, the app and the documentation. https://claude.ai
+
+*This project is a prototype and is not financial advice.*
