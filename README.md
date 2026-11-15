@@ -40,7 +40,12 @@ We used a Precision-Recall Area Under the Curve(PR-AUC) to evaluate our model ag
 
 Our baseline scored X. Our model scored Y on held-out test data.
 
-Although our model outperformed the baselines, it still has its limitations
+Although our model outperformed the baselines, it still has its limitations:
+
+-It only had limited improvement over the volatility rule (+0.013 PR-AUC for the test data, +0.017 for the first set of additional test data, and +0.015 for the second set of additional test data), because the historical price volaitlity already contains most information associated with future 10% drops, so our model only offers limited improvement
+-Our model also lost against the volatility baseline in 2021 on two of the test datasets - the original test dataset and the first additional set, as the model works best when it improves the ranking of risk across periods, rather than outperforming the baseline on every single stock
+- There was also a very high false-positive rate - approximately 80% of warnings were not followed by a 10%+ drop, as large price drops are relatively uncommon. A warning simply indicates an increased probablity, not certainty. To see the consequences of this, we conducted a stress test by selling whenever a warning was generated, and compared it to Buy and hold. Our results showed that although the worst fall was ony 7% compared to Buy and Hold's 18%, the final return was much lower at 37% in comparison to a 123% return from Buy and Hold.
+- There were also late warnings - only generated after a price decline started (e.g. Apple in April 2025, its warning only generated after its decline begun). This is due to volatility being the model's strongest signal, but it often increases during a decline.
 ## What we'd do next
 One or two concrete next steps with more time.
 ## Sources
