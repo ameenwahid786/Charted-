@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
+import streamlit.components.v1 as components
 from plotly.subplots import make_subplots
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -38,24 +39,39 @@ LEVEL = {
 }
 
 st.set_page_config(page_title="Charted: crash-risk early warning", page_icon="📉",
-                   layout="wide", initial_sidebar_state="expanded")
+                   layout="wide", initial_sidebar_state="collapsed")
 st.markdown("""
 <style>
-.big-num {font-size: 2.6rem; font-weight: 700; line-height: 1.1; margin: 0.2rem 0 0.1rem 0;}
-.badge {display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-weight: 600;
-        font-size: 0.9rem; border: 1px solid; margin-bottom: 0.4rem;}
-.muted {color: #8a897f; font-size: 0.9rem;}
-.card-title {font-size: 1.25rem; font-weight: 700;}
-.why-row {padding: 0.35rem 0; border-bottom: 1px solid #262626;}
-.footer {color: #8a897f; font-size: 0.85rem; border-top: 1px solid #262626;
+header[data-testid="stHeader"] {display: none;}
+section[data-testid="stSidebar"], div[data-testid="stSidebarCollapsedControl"] {display: none;}
+.block-container {padding-top: 1rem; max-width: 1240px;}
+iframe {display: block;}
+h1 {font-size: 2rem !important; letter-spacing: -0.01em; margin-bottom: 0.2rem;}
+h4 {font-size: 1.1rem !important; margin-top: 1.2rem;}
+.num {font-family: 'IBM Plex Mono', monospace; font-feature-settings: "tnum";}
+.big-num {font-family: 'IBM Plex Mono', monospace; font-size: 2.5rem; font-weight: 600;
+          line-height: 1.1; margin: 0.4rem 0 0.1rem 0; letter-spacing: -0.02em;}
+.badge {display: inline-block; padding: 0.12rem 0.6rem; border-radius: 999px; font-weight: 500;
+        font-size: 0.85rem; border: 1px solid; margin-bottom: 0.5rem;}
+.muted {color: #8a897f; font-size: 0.88rem;}
+.lead {color: #c3c2b7; font-size: 1.02rem; max-width: 820px;}
+.card-title {font-size: 1.15rem; font-weight: 600;}
+.kv {display: flex; justify-content: space-between; font-size: 0.92rem; padding: 0.15rem 0;}
+.kv b {font-family: 'IBM Plex Mono', monospace; font-weight: 500;}
+.why-row {padding: 0.45rem 0; border-bottom: 1px solid #1c1c1c;}
+.hero {border: 1px solid #262626; border-radius: 12px; padding: 1.1rem 1.3rem;
+       background: linear-gradient(135deg, rgba(57,135,229,0.12), rgba(0,0,0,0) 60%);}
+.hero .big {font-family: 'IBM Plex Mono', monospace; font-size: 2.1rem; font-weight: 600;}
+.footer {color: #8a897f; font-size: 0.82rem; border-top: 1px solid #1c1c1c;
          margin-top: 2.5rem; padding-top: 0.8rem;}
+div[data-testid="stSegmentedControl"] button p {font-size: 0.92rem;}
 </style>""", unsafe_allow_html=True)
 
 
 def style_fig(fig, height=420, y_title=None, x_title=None):
     fig.update_layout(
         paper_bgcolor=BG, plot_bgcolor=BG, height=height,
-        font=dict(color=TEXT, family="sans-serif", size=13),
+        font=dict(color=TEXT, family="IBM Plex Sans, sans-serif", size=13),
         margin=dict(l=10, r=10, t=50, b=10),
         legend=dict(orientation="h", yanchor="bottom", y=1.02, x=0, bgcolor="rgba(0,0,0,0)"),
         hoverlabel=dict(bgcolor="#111111", font_color="#f0efec", bordercolor="#3a3a3a"),
@@ -197,16 +213,89 @@ def why_steps(r):
     return start, steps, rest
 
 
-# ---- sidebar -----------------------------------------------------------------------------
+# ---- top bar: brand, ticker of the snapshot's biggest moves, live clock ------------------
+@st.cache_data
+def biggest_moves(n_days=5, n_items=24):
+    """Largest one-day price moves in the last n_days trading days of the snapshot."""
+    h = load_history()[["date", "ticker", "close"]].sort_values(["ticker", "date"])
+    h["ret"] = h.groupby("ticker")["close"].pct_change()
+    recent = h[h["date"].isin(sorted(h["date"].unique())[-n_days:])].dropna(subset=["ret"])
+    recent = recent.assign(size=recent["ret"].abs()).nlargest(n_items, "size")
+    return recent.sort_values(["date", "size"], ascending=[False, False])
+
+
+def top_bar():
+    items = []
+    for _, m in biggest_moves().iterrows():
+        up = m["ret"] >= 0
+        items.append(
+            f'<span class="item"><b>{m["ticker"]}</b> '
+            f'<span class="{"up" if up else "down"} mono">{"▲" if up else "▼"} '
+            f'{abs(m["ret"]) * 100:.1f}%</span> '
+            f'<span class="when">{pd.Timestamp(m["date"]):%d %b}</span></span>')
+    track = "".join(items)
+    components.html(f"""
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+ body {{margin:0; background:#000; color:#f0efec; font-family:'IBM Plex Sans',sans-serif;}}
+ .bar {{display:flex; align-items:center; height:50px; border:1px solid #262626;
+        border-radius:12px; background:#0b0b0b; overflow:hidden; box-sizing:border-box;}}
+ .brand {{padding:0 16px; font-weight:600; font-size:16px; white-space:nowrap; height:100%;
+          display:flex; align-items:center; border-right:1px solid #262626;}}
+ .label {{padding:0 12px; font-size:11.5px; line-height:1.25; color:#8a897f; height:100%;
+          display:flex; align-items:center; border-right:1px solid #262626;}}
+ .tape {{flex:1; overflow:hidden; height:100%; display:flex; align-items:center;
+         -webkit-mask-image:linear-gradient(90deg,transparent,#000 3%,#000 97%,transparent);}}
+ .track {{display:inline-flex; white-space:nowrap; animation:scroll 70s linear infinite;}}
+ .tape:hover .track {{animation-play-state:paused;}}
+ .item {{padding:0 18px; font-size:13px; border-right:1px solid #1c1c1c;}}
+ .up {{color:#2bb673;}} .down {{color:#e5484d;}} .when {{color:#8a897f; font-size:11.5px;}}
+ .mono {{font-family:'IBM Plex Mono',monospace;}}
+ .clock {{padding:0 16px; height:100%; display:flex; flex-direction:column; justify-content:center;
+          align-items:flex-end; border-left:1px solid #262626; white-space:nowrap;}}
+ #t {{font-family:'IBM Plex Mono',monospace; font-size:17px; font-weight:500;}}
+ #d {{font-size:11px; color:#8a897f;}}
+ @keyframes scroll {{from {{transform:translateX(0);}} to {{transform:translateX(-50%);}}}}
+ @media (max-width:700px) {{.label, .brand {{display:none;}}}}
+</style>
+<div class="bar">
+  <div class="brand">📉&nbsp;Charted</div>
+  <div class="label">Biggest daily moves<br>snapshot to {AS_OF}</div>
+  <div class="tape"><div class="track">{track}{track}</div></div>
+  <div class="clock"><div id="t">--:--:--</div><div id="d">your local time</div></div>
+</div>
+<script>
+ function tick() {{
+   const n = new Date();
+   document.getElementById('t').textContent =
+     n.toLocaleTimeString([], {{hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false}});
+   document.getElementById('d').textContent =
+     n.toLocaleDateString([], {{weekday:'short', day:'numeric', month:'short', year:'numeric'}}) + ' · your time';
+ }}
+ tick(); setInterval(tick, 1000);
+</script>""", height=52)
+
+
 PAGES = ["Check my stocks", "Stock detail", "Does it beat a simple rule?", "How it works"]
-with st.sidebar:
-    st.markdown("## 📉 Charted")
-    st.caption("Crash-risk early warning for beginner investors")
-    page = st.radio("Go to", PAGES, key="page", label_visibility="collapsed")
-    st.divider()
-    st.caption(f"**Data snapshot:** prices up to **{AS_OF}**. Not live.")
-    st.caption(f"{len(TICKERS)} large US stocks.")
-    st.caption(DISCLAIMER)
+if st.session_state.get("page") not in PAGES:
+    st.session_state["page"] = PAGES[0]
+
+
+def nav_changed():
+    if st.session_state["_nav"]:  # clicking the active page again deselects it: ignore
+        st.session_state["page"] = st.session_state["_nav"]
+
+
+top_bar()
+nav_col, info_col = st.columns([3, 1], vertical_alignment="center")
+with nav_col:
+    st.session_state["_nav"] = st.session_state["page"]
+    st.segmented_control("Pages", PAGES, key="_nav", on_change=nav_changed,
+                         label_visibility="collapsed")
+with info_col:
+    st.markdown(f"<div class='muted' style='text-align:right'>Snapshot <b>{AS_OF}</b> · not live"
+                f"</div>", unsafe_allow_html=True)
+page = st.session_state["page"]
 
 # Widget state is dropped when a page doesn't render that widget, so the chosen stocks
 # live in "my_picks" and are copied into the multiselect each time it is drawn.
@@ -255,8 +344,9 @@ def page_check():
                     f"<div class='big-num'>{pct(r['p_v3'])}</div>"
                     f"<div class='muted'>chance of a 10%+ drop in the next month</div>"
                     f"<div style='margin-top:0.5rem'>{badge(r['level'])}</div>"
-                    f"<div>Typical stock: <b>{pct(BASE)}</b></div>"
-                    f"<div>Simple volatility rule says: <b>{pct(r['p_vol'])}</b></div>",
+                    f"<div class='kv'><span>Typical stock</span><b>{pct(BASE)}</b></div>"
+                    f"<div class='kv'><span>Simple volatility rule says</span>"
+                    f"<b>{pct(r['p_vol'])}</b></div>",
                     unsafe_allow_html=True)
                 st.button("Why? See details →", key=f"go_{t}", on_click=go_detail, args=(t,))
 
@@ -393,19 +483,27 @@ def page_results():
     hm = load_csv("holdout_metrics.csv").set_index("method")
     boot = load_json("holdout_bootstrap.json")
     v3, vr = hm.loc["Model v3 (rule + corrections)"], hm.loc["Volatility rule"]
-    st.markdown(
-        "**Yes, by a small but consistent margin.** Our main test uses **49 large US stocks the "
-        "model never saw** (not used for training, tuning or choosing the model), over "
-        "**2021–2025**.")
-    m = st.columns(4)
-    m[0].metric("Model v3 PR-AUC", f"{v3['PR_AUC']:.3f}",
-                f"{v3['PR_AUC'] - vr['PR_AUC']:+.3f} vs rule")
-    m[1].metric("Volatility rule PR-AUC", f"{vr['PR_AUC']:.3f}")
-    m[2].metric("No skill (guessing)", f"{hm.loc['Never warn', 'PR_AUC']:.3f}")
-    m[3].metric("v3 wins in bootstrap", pct(boot["win_share"]),
-                f"95% CI {boot['ci_low']:+.3f} to {boot['ci_high']:+.3f}", delta_color="off")
-    st.caption("PR-AUC: higher is better; it scores how well the warnings rank risky days above "
-               "safe ones. Guessing scores the crash rate (12%).")
+    yr = load_csv("holdout_by_year.csv")
+    years_won = int((yr["v3"] > yr["volatility_rule"]).sum())
+    gain = v3["PR_AUC"] / vr["PR_AUC"] - 1
+    st.markdown(f"""
+<div class="hero">
+  <div style="font-size:1.25rem; font-weight:600;">Yes. Model v3 spots 10% drops better than
+  the simple volatility rule, on stocks it has never seen.</div>
+  <div class="muted" style="margin:0.3rem 0 0.9rem 0;">Fresh holdout: 49 large US stocks not used
+  for training, tuning or choosing the model · 2021–2025 · the margin is small but consistent</div>
+  <div style="display:flex; gap:2.5rem; flex-wrap:wrap;">
+    <div><div class="muted">Model v3 PR-AUC</div><div class="big" style="color:{C_V3}">{v3['PR_AUC']:.3f}</div></div>
+    <div><div class="muted">Volatility rule PR-AUC</div><div class="big" style="color:{C_VOL}">{vr['PR_AUC']:.3f}</div></div>
+    <div><div class="muted">Improvement</div><div class="big">+{gain * 100:.0f}%</div></div>
+    <div><div class="muted">Bootstrap resamples won</div><div class="big">{pct(boot['win_share'])}</div></div>
+    <div><div class="muted">Years won</div><div class="big">{years_won} of {len(yr)}</div></div>
+  </div>
+</div>""", unsafe_allow_html=True)
+    st.caption(f"PR-AUC: higher is better; it scores how well the warnings rank risky days "
+               f"above safe ones. Guessing scores the crash rate "
+               f"({hm.loc['Never warn', 'PR_AUC']:.3f}). 95% bootstrap range of the gap: "
+               f"{boot['ci_low']:+.3f} to {boot['ci_high']:+.3f}, entirely above zero.")
 
     st.markdown("#### Precision–recall curve (fresh holdout)")
     curves = load_csv("holdout_pr_curves.csv")
@@ -497,7 +595,9 @@ def backtest_section():
     curves = load_csv("backtest_curves.csv")
     if summary is None or curves is None:
         return
-    st.markdown("#### Backtest: what if you stepped aside during warnings?")
+    st.markdown("#### Stress test: what if you sold every time a warning came on?")
+    st.caption("v3 is built to estimate risk, not to time trades. This test is included for "
+               "honesty and is not part of the main result.")
     st.markdown(
         "An equal-weight portfolio that holds each stock, but moves that stock to cash (0% "
         "return) while its warning is on, and buys back when it switches off. Warnings use the "

@@ -4,7 +4,19 @@ backgroundColor = "#000000"
 secondaryBackgroundColor = "#111111"
 textColor = "#f0efec"
 primaryColor = "#3987e5"
-font = "sans serif"
+font = "IBM Plex Sans:https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap, sans-serif"
+headingFont = "IBM Plex Sans:https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap, sans-serif"
+codeFont = "IBM Plex Mono:https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap, monospace"
+headingFontWeights = [600, 600, 600]
+borderColor = "#262626"
+dataframeBorderColor = "#1f1f1f"
+dataframeHeaderBackgroundColor = "#0b0b0b"
+baseRadius = "0.6rem"
+showWidgetBorder = true
+
+[client]
+toolbarMode = "minimal"
+showSidebarNavigation = false
 
 [browser]
 gatherUsageStats = false
