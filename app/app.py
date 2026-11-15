@@ -27,6 +27,7 @@ DISCLAIMER = "This project is a prototype and is not financial advice."
 BG, GRID, LINE = "#000000", "#161616", "#1f1f1f"
 WHITE, TEXT, MUTED = "#f4f1ea", "#cfc9bd", "#8c867a"
 YELLOW, RED, RED_TXT = "#ffcf40", "#b5121b", "#e5383b"
+GREEN, BIG_UP = "#1f9a4e", 0.025  # dark green for rises of +2.5% or more
 C_V3, C_VOL, C_MA, C_V1, C_NONE = YELLOW, "#c8102e", "#e9e4d8", "#9c8a4a", "#5f5a50"
 METHOD_STYLE = {  # name in results files -> (label, colour, dash)
     "Model v3 (rule + corrections)": ("Model v3 (ours)", C_V3, "solid"),
@@ -54,6 +55,7 @@ p, li {{color: {TEXT};}}
 .glow-w {{color: {WHITE}; text-shadow: 0 0 16px rgba(244,241,234,0.25);}}
 .glow-r {{color: {RED_TXT}; text-shadow: 0 0 18px rgba(200,16,46,0.55);}}
 .up {{color: {YELLOW};}} .down {{color: {RED_TXT};}}
+.up-big {{color: {GREEN}; text-shadow: 0 0 12px rgba(31,154,78,0.55);}}
 .hr {{border-top: 1px solid {LINE}; margin: 0.9rem 0;}}
 
 /* page tabs and range pickers: horizontal radios drawn as underlined text */
@@ -194,8 +196,13 @@ def share(x):
     return f"{x * 100:.0f}%" if round(x * 1000) % 10 == 0 else f"{x * 100:.1f}%"
 
 
+def move_class(x):
+    """Price moves: dark green for +2.5% or more, glowing yellow for smaller rises, red for falls."""
+    return "up-big" if x >= BIG_UP else "up" if x >= 0 else "down"
+
+
 def signed_pct(x, digits=2):
-    cls, arrow = ("up", "▲") if x >= 0 else ("down", "▼")
+    cls, arrow = move_class(x), ("▲" if x >= 0 else "▼")
     return f'<span class="{cls} num">{arrow} {abs(x) * 100:.{digits}f}%</span>'
 
 
@@ -376,7 +383,7 @@ def top_strip():
         up = m["ret"] >= 0
         items.append(
             f'<span class="item"><b>{m["ticker"]}</b> <span class="mono">{money(m["close"])}</span> '
-            f'<span class="{"up" if up else "down"} mono">{"▲" if up else "▼"} '
+            f'<span class="{move_class(m["ret"])} mono">{"▲" if up else "▼"} '
             f'{abs(m["ret"]) * 100:.1f}%</span> '
             f'<span class="when">{pd.Timestamp(m["date"]):%d %b}</span></span>')
     track = "".join(items)
@@ -399,7 +406,8 @@ def top_strip():
  .tape:hover .track {{animation-play-state:paused;}}
  .item {{padding:0 20px; font-size:13px; color:{TEXT};}}
  .item b {{color:{WHITE};}}
- .up {{color:{YELLOW};}} .down {{color:{RED_TXT};}} .when {{color:{MUTED}; font-size:11px;}}
+ .up {{color:{YELLOW};}} .down {{color:{RED_TXT};}}
+ .up-big {{color:{GREEN}; text-shadow:0 0 10px rgba(31,154,78,0.6);}} .when {{color:{MUTED}; font-size:11px;}}
  .mono {{font-family:'IBM Plex Mono',monospace;}}
  .clock {{padding-left:18px; display:flex; flex-direction:column; align-items:flex-end;
           white-space:nowrap;}}
@@ -612,7 +620,7 @@ def page_stock():
              f"<div style='display:flex; align-items:baseline; gap:1rem'>"
              f"<span class='bigprice glow-w'>{money(last['close'])}</span>"
              f"<span style='font-size:1.1rem'>{signed_pct(chg)} "
-             f"<span class='num {'up' if chg >= 0 else 'down'}'>"
+             f"<span class='num {move_class(chg)}'>"
              f"({'+' if chg >= 0 else '−'}{money(abs(last['close'] - prev['close']))})</span></span>"
              f"</div><div class='muted'>At close, {AS_OF} · snapshot, not live</div>")
     with c2:
