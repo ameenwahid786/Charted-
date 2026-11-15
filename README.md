@@ -19,7 +19,7 @@ This project is a prototype and is not financial advice
 Our own idea
 
 ## How it works
-Data: Our data that we trained and tested our model on comes from Yahoo Finance, using the yfinance library, and includes daily stock prices - high, low, open, close, and volume. The stocks were taken from the S&P 500 index, VIX, and 99 large US stocks across 10 sectors, with a time period of 2 Jan 2009 - 27 Feb 2026. 
+**Data:** Our data that we trained and tested our model on comes from Yahoo Finance, using the yfinance library, and includes daily stock prices - high, low, open, close, and volume. The stocks were taken from the S&P 500 index, VIX, and 99 large US stocks across 10 sectors, with a time period of 2 Jan 2009 - 27 Feb 2026. 
 
 The model was trained on stocks from 2010 - 2018 (222,156 examples), validated on stocks from 2019-2020(48,015 examples). The main test was carried out on data from 2021-2025(121,245 examples), and we conducted 2 additional tests on fresh test sets on stocks never encountered in training to see how the model performed. Both additional test sets were carried out on data from 2021-2025, with the stocks comprised of 49 other large US stocks for the first and 95 other additional stocks for the second (61,495 and 119,225 examples respectively). 
 
@@ -31,7 +31,7 @@ We included several checks to clean the data and prevent againast leakage:
    - Removed invalid values such as division by zero volume
    - Added 20 day gaps between training, validation, and test data periods to prevent data leakage
 
-Model: We had 2 iterations of our model - our final model combines a simple volatility-based rule with a small LightGBM model to help learn corrections to its predictions. The volatility rule estimates the probability of a 10% drop, and the LightGBM model adjusts this probability upwards or downwards based on 16 additional signals. We chose LightGBM as it fits table-shaped data, which our model uses, better than alternatives, as well as being able to better explain the reasons behind its predictions (a key feature of our tool), as it can split each prediction into exact per-signal contributions.
+**Model:** We had 2 iterations of our model - our final model combines a simple volatility-based rule with a small LightGBM model to help learn corrections to its predictions. The volatility rule estimates the probability of a 10% drop, and the LightGBM model adjusts this probability upwards or downwards based on 16 additional signals. We chose LightGBM as it fits table-shaped data, which our model uses, better than alternatives, as well as being able to better explain the reasons behind its predictions (a key feature of our tool), as it can split each prediction into exact per-signal contributions.
 
 Our v1 model only used the LightGBM model, and it matched the simple volatility baseline.
 
@@ -48,11 +48,12 @@ Although our model outperformed the baselines, it still has its limitations:
 - There is also survivorship bias, as the dataset consists of companies that are large and established today - companies that previously failed or delisted were not adequetly represented. This could cause the model to underestimate real-world market risk
 
 ## What we'd do next
-
-
+Although it would be hard to significantly improve the model's performance, some improvements to the model could be made with more time. Some examples are:
+- Including company-specific information such as earnings annoucement dates, news sentiment, and announcements to help address one of the model's weaknesses as listed above.
+- Addressing survivorship bias by reconstructing historical stock-index membership, and including companies that fell out or were delisted. Training the model on data including these stocks would produce a more representative assessment of historical market risk, improving its performance.
 
 ## Sources
-Datasets, pretrained models, tutorials and AI tools used, with links.
+D
 
 ---
 
