@@ -506,7 +506,7 @@ def backtest_section():
     names = {"v3": ("Model v3 (ours)", C_V3, "solid"),
              "vol_rule": ("Volatility rule (simple)", C_VOL, "solid"),
              "ma200": ("200-day average rule", C_MA, "solid"),
-             "buy_hold": ("Buy and hold", "#f0efec", "dot")}
+             "buy_hold": ("Buy and hold", "#f0efec", "solid")}
     universes = list(dict.fromkeys(summary["universe"]))
     tabs = st.tabs([u for u in universes])
     for tab, u in zip(tabs, universes):
@@ -530,6 +530,16 @@ def backtest_section():
                          "Yearly volatility", "Share of stock-days in cash"]
             st.dataframe(s[show_cols], hide_index=True, column_config={
                 c: st.column_config.NumberColumn(format="percent") for c in show_cols[1:]})
+            b = summary[summary["universe"] == u].set_index("strategy")
+            st.markdown(
+                f"**What it shows:** stepping aside on v3 warnings cut the worst fall from "
+                f"{pct(-b.loc['buy_hold', 'max_drawdown'])} to "
+                f"{pct(-b.loc['v3', 'max_drawdown'])}, but the money ended up "
+                f"{pct(b.loc['v3', 'total_return'])} higher instead of "
+                f"{pct(b.loc['buy_hold', 'total_return'])} with simple buy-and-hold "
+                f"(volatility rule: {pct(b.loc['vol_rule', 'total_return'])}). Missing the "
+                f"rebounds after warnings costs a lot. The warnings are better used to "
+                f"understand risk than to time the market.")
     note = RES / "backtest_note.txt"
     if note.exists():
         st.caption(note.read_text())

@@ -1,0 +1,1 @@
+Period 2021-01-05 to 2025-12-30. Warning thresholds fixed on 2019-20 validation data; nothing tuned on these results. Ignores trading costs and taxes, which would hurt the strategies that switch in and out of cash. Uses dividend-adjusted closes. Cash earns 0%. Past results do not predict future results.
