@@ -1,0 +1,10 @@
+model,val_PR_AUC,trees
+Volatility rule (baseline),0.21813125625597618,-
+A  v1 LightGBM (reference),0.23594538764697695,55
+"B  rule + corrections, 16 features (leaves=3, min=2000)",0.23477371933762065,44
+"C  rule + corrections, robust features (leaves=3, min=2000)",0.25077192777803314,54
+"B  rule + corrections, 16 features (leaves=7, min=1000)",0.22958186289858185,16
+"C  rule + corrections, robust features (leaves=7, min=1000)",0.2337824462775705,20
+"B  rule + corrections, 16 features (leaves=7, min=3000)",0.22811220968091858,14
+"C  rule + corrections, robust features (leaves=7, min=3000)",0.236433340450607,15
+"D  logistic regression, 5 features",0.23181091655642921,-

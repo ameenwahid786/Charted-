@@ -121,3 +121,20 @@ def load_panel() -> pd.DataFrame:
 
 def load_preds() -> pd.DataFrame:
     return pd.read_parquet(PREDS_PATH)
+
+
+# ---------------------------------------------------------------------------
+# Fresh holdout (module 6d): 50 large US stocks NOT in TICKERS, never used for
+# training, tuning or the earlier test looks. Chosen before model v3 was tested.
+# ---------------------------------------------------------------------------
+HOLDOUT_SECTORS = {
+    "Technology": ["AMD", "MU", "AMAT", "LRCX", "KLAC", "ADI", "INTU", "ADSK", "CTSH", "HPQ"],
+    "Consumer": ["ROST", "YUM", "MAR", "EBAY", "ORLY", "AZO", "DHI", "LEN", "KR", "SYY",
+                 "HSY", "CLX"],
+    "Health Care": ["ISRG", "BDX", "SYK", "BSX", "CI", "HUM", "REGN", "VRTX"],
+    "Financials": ["PNC", "TRV", "AIG", "MET", "PRU", "BK", "CME", "AFL"],
+    "Industrials & Materials": ["EMR", "ETN", "ITW", "GD", "NOC", "CSX", "FDX", "NUE"],
+    "Energy & Utilities": ["APA", "OKE", "EXC", "XEL"],
+}
+HOLDOUT_TICKERS = [t for g in HOLDOUT_SECTORS.values() for t in g]
+assert not set(HOLDOUT_TICKERS) & set(TICKERS), "holdout overlaps the main universe"

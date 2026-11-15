@@ -1,0 +1,8 @@
+{
+  "model_red": 0.10644196707094729,
+  "model_amber": 0.05229311649133036,
+  "model_v2_red": 0.10547452238237778,
+  "score_column": "score_model",
+  "note": "red = same warning budget as the volatility rule on validation; amber = twice that budget.",
+  "base_rate_test": 0.11899875246488792
+}

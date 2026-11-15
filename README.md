@@ -33,6 +33,12 @@ Datasets, pretrained models, tutorials and AI tools used, with links.
 - **Main metric:** PR-AUC on the test set. **Practical metric:** recall when both methods are set to the same precision.
 - **Universe:** 99 large US stocks across 10 sectors (see `src/common.py`), plus ^GSPC and ^VIX, 2009-01-01 to 2026-03-01.
 
+
+### Model history (full transparency)
+1. **v1** (LightGBM, 16 features, trained 2010-18, tuned on 2019-20) was fixed in advance. On the 2021-25 test set it **tied** the volatility rule (PR-AUC 0.192 vs 0.191).
+2. **v2** (same model refit on 2010-20) was declared after seeing v1's result. It did worse (0.182).
+3. **v3** ("volatility rule + learned corrections", volatility-scaled and same-day-ranked features) was chosen among 7 candidates **on validation only** (0.251 vs the rule's 0.218). Because the 2021-25 test set had already been looked at twice, v3's main test is a **fresh holdout: 50 different large US stocks over 2021-25** (`HOLDOUT_TICKERS` in `src/common.py`), fixed before v3 was ever scored on them. Pre-registered claim: v3 beats the volatility rule on holdout PR-AUC, with the monthly block bootstrap win share reported whatever it is. v3's score on the original test set is also reported, labelled as a third look.
+
 ### Setup and data download
 ```bash
 pip install -r requirements.txt
@@ -49,7 +55,13 @@ python src/02_labels.py     # crash labels + crash rate per year
 python src/03_features.py   # 16 past-only features + leak test (must PASS)
 python src/04_split.py      # train 2010-18 / val 2019-20 / test 2021-25
 python src/05_baselines.py  # baseline scores -> data/preds.parquet (val results only)
-python src/06_model.py      # LightGBM, tuned on val -> score_model in preds.parquet
+python src/06_model.py      # LightGBM v1, tuned on val -> score_model
+python src/06b_refit.py     # declared v2 refit on 2010-20 -> score_model_v2
+python src/07_evaluate.py   # ONE-TIME test evaluation -> results/ (PR curve, metrics)
+python src/06c_experiments.py  # candidate models, compared on validation only
+python src/06d_train_v3.py     # train + save model v3 -> score_model_v3
+python src/01_download.py --holdout  # needs internet: 50 fresh holdout stocks
+python src/06e_holdout.py      # v3 vs volatility rule on the fresh holdout + bootstrap
 ```
 
 ## Loading data in other modules

@@ -1,0 +1,35 @@
+{
+  "cal_a": 0.37890499347791845,
+  "cal_b": -1.4379034923959824,
+  "trees": 54,
+  "features": [
+    "ret_20_z",
+    "ret_60_z",
+    "drawdown_z",
+    "dist_ma200_z",
+    "vol_vs_mkt",
+    "vol_20_rank",
+    "vol_60_rank",
+    "ret_20_rank",
+    "drawdown_252_rank",
+    "beta_60_rank",
+    "volume_ratio_20_rank",
+    "vol_ratio_20_60",
+    "rsi_14",
+    "vix",
+    "vix_chg_5",
+    "mkt_ret_20"
+  ],
+  "params": {
+    "objective": "binary",
+    "learning_rate": 0.03,
+    "num_leaves": 3,
+    "min_child_samples": 2000,
+    "subsample": 0.8,
+    "subsample_freq": 1,
+    "colsample_bytree": 0.8,
+    "reg_lambda": 1.0,
+    "random_state": 42,
+    "verbose": -1
+  }
+}

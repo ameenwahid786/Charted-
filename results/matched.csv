@@ -1,0 +1,5 @@
+model_version,measure,question,model,volatility_rule
+Model v1 (trained 2010-18),recall,Share of crashes caught when warnings are right 19% of the time,0.5065945214744674,0.5055799797091647
+Model v1 (trained 2010-18),precision,Share of warnings that are right when catching 51% of crashes,0.18989909233811672,0.18981234605520428
+Model v2 (trained 2010-20),recall,Share of crashes caught when warnings are right 19% of the time,0.41643557659790326,0.5055799797091647
+Model v2 (trained 2010-20),precision,Share of warnings that are right when catching 51% of crashes,0.18675149700598803,0.18981234605520428

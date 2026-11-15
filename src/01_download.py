@@ -17,7 +17,7 @@ import time
 
 import pandas as pd
 
-from common import (ALL_SYMBOLS, END, MANIFEST_PATH, MARKET_TICKERS, PRICE_COLS,
+from common import (ALL_SYMBOLS, HOLDOUT_TICKERS, END, MANIFEST_PATH, MARKET_TICKERS, PRICE_COLS,
                     RAW_DIR, START, TICKER_SECTOR, csv_path, load_raw)
 
 
@@ -80,7 +80,7 @@ def download(symbols, start, end, batch_size, pause, retries):
     return todo
 
 
-def check(symbols, start) -> bool:
+def check(symbols, start, manifest_path=MANIFEST_PATH) -> bool:
     """Load every symbol from disk only and write the manifest."""
     rows, problems = [], []
     first_ok = pd.Timestamp(start) + pd.Timedelta(days=10)
@@ -111,7 +111,7 @@ def check(symbols, start) -> bool:
         })
     manifest = pd.DataFrame(rows)
     if len(manifest):
-        manifest.to_csv(MANIFEST_PATH, index=False)
+        manifest.to_csv(manifest_path, index=False)
 
     print(f"\nLoaded {len(manifest)}/{len(symbols)} symbols from disk (no internet used).")
     if len(manifest):
@@ -129,24 +129,28 @@ def main():
     ap.add_argument("--end", default=END, help="exclusive")
     ap.add_argument("--force", action="store_true", help="re-download cached symbols")
     ap.add_argument("--check", action="store_true", help="offline check only")
+    ap.add_argument("--holdout", action="store_true",
+                    help="download/check the 50 fresh holdout stocks instead")
     ap.add_argument("--batch-size", type=int, default=20)
     ap.add_argument("--pause", type=float, default=2.0, help="seconds between batches")
     ap.add_argument("--retries", type=int, default=3)
     args = ap.parse_args()
 
     RAW_DIR.mkdir(parents=True, exist_ok=True)
+    symbols = HOLDOUT_TICKERS if args.holdout else ALL_SYMBOLS
 
     if not args.check:
-        todo = ALL_SYMBOLS if args.force else [s for s in ALL_SYMBOLS
-                                               if not csv_path(s).exists()]
-        print(f"{len(ALL_SYMBOLS) - len(todo)} cached, {len(todo)} to download "
+        todo = symbols if args.force else [s for s in symbols
+                                           if not csv_path(s).exists()]
+        print(f"{len(symbols) - len(todo)} cached, {len(todo)} to download "
               f"({args.start} to {args.end})")
         failed = download(todo, args.start, args.end, args.batch_size,
                           args.pause, args.retries) if todo else []
         if failed:
             print(f"\nStill failing: {failed}\nRe-run later; cached ones are kept.")
 
-    ok = check(ALL_SYMBOLS, args.start)
+    ok = check(symbols, args.start,
+               MANIFEST_PATH.with_name('_manifest_holdout.csv') if args.holdout else MANIFEST_PATH)
     print("\nDONE: every symbol loads from disk." if ok else "\nNOT DONE yet (see above).")
     sys.exit(0 if ok else 1)
 
