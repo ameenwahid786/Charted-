@@ -1,11 +1,9 @@
-yfinance>=0.2.50
+# Everything the hosted Streamlit app needs (Streamlit Community Cloud installs this).
 pandas>=2.0
 numpy
 pyarrow
 scipy
 scikit-learn
 lightgbm
-shap
-matplotlib
-plotly
-streamlit
+plotly>=5.20
+streamlit>=1.50

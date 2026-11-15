@@ -62,7 +62,28 @@ python src/06c_experiments.py  # candidate models, compared on validation only
 python src/06d_train_v3.py     # train + save model v3 -> score_model_v3
 python src/01_download.py --holdout  # needs internet: 50 fresh holdout stocks
 python src/06e_holdout.py      # v3 vs volatility rule on the fresh holdout + bootstrap
+python src/08_app_data.py      # small precomputed app files -> data/app/ + results/thresholds_v3.json
+python src/09_backtest.py      # warnings-as-cash backtest -> results/backtest_*.csv
 ```
+
+`requirements.txt` is what the web app needs; `pip install -r requirements-dev.txt` adds
+`yfinance` and `matplotlib` for re-running the whole pipeline.
+
+## Web app
+
+```bash
+streamlit run app/app.py
+```
+
+The app only reads the small committed files in `data/app/` and `results/`. It never trains,
+downloads prices or rebuilds the big parquet files, so it starts in a few seconds.
+Theme: `.streamlit/config.toml`. LightGBM's Linux dependency: `packages.txt` (`libgomp1`).
+
+**Deploy (Streamlit Community Cloud):** share.streamlit.io → *Create app* → repository
+`ameenwahid786/Charted-`, branch `main`, main file `app/app.py` → *Deploy*. The repo must be
+public (or the Streamlit account connected to GitHub with access to it). After any change to
+the pipeline, re-run `08_app_data.py` and `09_backtest.py`, commit, and push; the hosted app
+redeploys automatically.
 
 ## Loading data in other modules
 

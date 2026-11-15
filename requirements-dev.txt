@@ -1,0 +1,4 @@
+# Extra packages for re-running the full pipeline (download, charts in results/).
+-r requirements.txt
+yfinance>=0.2.50
+matplotlib
