@@ -163,3 +163,28 @@ HOLDOUT2_SECTORS = {
 HOLDOUT2_TICKERS = [t for g in HOLDOUT2_SECTORS.values() for t in g]
 assert not set(HOLDOUT2_TICKERS) & (set(TICKERS) | set(HOLDOUT_TICKERS)), "holdout 2 overlaps"
 assert len(set(HOLDOUT2_TICKERS)) == len(HOLDOUT2_TICKERS)
+
+
+# ---------------------------------------------------------------------------
+# App snapshot prices (src/01b_download_live.py). Kept separate from data/raw so the
+# research pipeline and every reported result stay exactly reproducible.
+# ---------------------------------------------------------------------------
+LIVE_DIR = DATA_DIR / "raw_live"
+LIVE_START = "2022-01-01"
+
+
+def live_csv_path(symbol: str) -> Path:
+    return LIVE_DIR / f"{symbol.replace('^', 'IDX_')}.csv"
+
+
+def load_live(symbol: str) -> pd.DataFrame:
+    path = live_csv_path(symbol)
+    if not path.exists():
+        raise FileNotFoundError(f"{symbol}: {path} missing -- run src/01b_download_live.py")
+    return pd.read_csv(path, parse_dates=["date"])
+
+
+def load_all_live(symbols) -> pd.DataFrame:
+    frames = [load_live(s).assign(ticker=s) for s in symbols if live_csv_path(s).exists()]
+    out = pd.concat(frames, ignore_index=True)
+    return out.sort_values(["ticker", "date"]).reset_index(drop=True)

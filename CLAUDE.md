@@ -65,6 +65,10 @@ starting points (`src/model_v4.py`, `src/06f_v4_experiments.py`); none beat v3 o
 app stays on v3. **Holdout 2** (95 more unseen stocks, `HOLDOUT2_TICKERS`, MMC failed; `src/06g_holdout2.py`, run once):
 v3 0.183 vs vol rule 0.169, bootstrap 99.8% (CI +0.007 to +0.022), years 5/5, stocks 39/95, precision 0.182 vs 0.172,
 recall 0.524 vs 0.461. Report: `results/v4_holdout2_report.md`. Backtest (09): warnings cut max drawdown but lose to buy-and-hold.
+**App snapshot (Nov 2026):** the app's prices come from `data/raw_live/` (`src/01b_download_live.py`, daily 2022→latest
+close + 1-minute bars in `data/app/app_intraday.parquet`). The research data `data/raw/` (to 27 Feb 2026), the model,
+thresholds and every result are unchanged. News page: `src/10_news.py` → `data/app/app_news.json` (GDELT, no key;
+headlines around each stock's worst day since 2023, labelled as context, not causes).
 Feature importance (v1): vol_60 42%, vol_20 24%, drawdown_252 9%, beta_60 8%.
 
 ## What is left to build

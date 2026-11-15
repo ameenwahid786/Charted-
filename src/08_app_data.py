@@ -11,6 +11,8 @@ The app must not train, download or rebuild the big parquet files, so this write
   results/thresholds_v3.json    v3 warning thresholds, fixed on VALIDATION (2019-20)
 
 Covers the 99 main stocks and the fresh holdout stocks. Nothing is tuned here.
+Prices come from the app snapshot in data/raw_live/ (src/01b_download_live.py), which runs
+to the latest close; the research data in data/raw/ is not used or changed here.
 """
 import importlib
 import json
@@ -18,8 +20,8 @@ import json
 import numpy as np
 import pandas as pd
 
-from common import (DATA_DIR, DROP, FEATURES, FEATURES_PATH, HOLDOUT_SECTORS, HOLDOUT_TICKERS,
-                    HORIZON, LABELS_PATH, RESULTS_DIR, TEST, TICKER_SECTOR, TICKERS, csv_path, load_all,
+from common import (DATA_DIR, DROP, FEATURES, HOLDOUT_SECTORS, HOLDOUT_TICKERS, HORIZON,
+                    RESULTS_DIR, TEST, TICKER_SECTOR, TICKERS, csv_path, load_all_live, load_live,
                     load_panel, load_preds)
 from companies import COMPANY
 from model_v3 import V3_FEATURES, add_v3_features, load_v3, logit, vol_prob
@@ -69,17 +71,19 @@ def main():
     booster, meta = load_v3()
 
     # --- main 99 stocks: ranks within themselves, exactly as in training -----------------
-    ref = pd.read_parquet(FEATURES_PATH)
-    main_df = add_v3_features(ref[ref["date"] >= HISTORY_START].dropna(subset=FEATURES))
-    lab = pd.read_parquet(LABELS_PATH)[["date", "ticker", "label"]]
-    main_df = main_df.merge(lab, on=["date", "ticker"], how="left").assign(universe="main")
+    mp = load_all_live(TICKERS)
+    ref = features_mod.build(mp, loader=load_live)
+    ref = ref[ref["date"] >= HISTORY_START].dropna(subset=FEATURES)
+    main_df = add_v3_features(ref)
+    main_df = main_df.merge(labels_for(mp), on=["date", "ticker"], how="left").assign(
+        universe="main")
 
     # --- holdout stocks: ranked against the 99-stock universe on the same day ------------
     avail = [t for t in HOLDOUT_TICKERS if csv_path(t).exists()]
-    hp = load_all(avail)
-    hf = features_mod.build(hp)
+    hp = load_all_live(avail)
+    hf = features_mod.build(hp, loader=load_live)
     hf = hf[hf["date"] >= HISTORY_START].dropna(subset=FEATURES)
-    hold_df = add_v3_features(hf, reference=ref[ref["date"] >= HISTORY_START])
+    hold_df = add_v3_features(hf, reference=ref)
     hold_df = hold_df.merge(labels_for(hp), on=["date", "ticker"], how="left").assign(
         universe="holdout")
 
@@ -105,7 +109,7 @@ def main():
     hist.to_parquet(APP_DIR / "app_history.parquet", index=False)
 
     # daily OHLCV for the stock pages (key stats, price chart)
-    px = pd.concat([load_all(sorted(set(TICKERS))), hp], ignore_index=True)
+    px = pd.concat([mp, hp], ignore_index=True)
     px = px[px["date"] >= HISTORY_START][["date", "ticker", "open", "high", "low", "close",
                                           "volume"]]
     for c in ["open", "high", "low", "close", "volume"]:

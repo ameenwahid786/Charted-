@@ -41,9 +41,9 @@ def stock_features(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def market_features() -> pd.DataFrame:
-    gspc = load_raw("^GSPC").set_index("date")["close"]
-    vix = load_raw("^VIX").set_index("date")["close"]
+def market_features(loader=load_raw) -> pd.DataFrame:
+    gspc = loader("^GSPC").set_index("date")["close"]
+    vix = loader("^VIX").set_index("date")["close"]
     mr = np.log(gspc).diff()
     m = pd.DataFrame({
         "vix": vix,
@@ -55,8 +55,10 @@ def market_features() -> pd.DataFrame:
     return m.reset_index()
 
 
-def build(prices: pd.DataFrame) -> pd.DataFrame:
-    market = market_features()
+def build(prices: pd.DataFrame, loader=load_raw) -> pd.DataFrame:
+    """loader: where to read ^GSPC/^VIX from (default data/raw; the app snapshot passes
+    the data/raw_live loader)."""
+    market = market_features(loader)
     parts = []
     for _, g in prices.sort_values(["ticker", "date"]).groupby("ticker"):
         g = g.reset_index(drop=True)

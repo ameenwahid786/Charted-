@@ -436,7 +436,7 @@ def top_strip():
 
 
 # ---- navigation and search ---------------------------------------------------------------
-PAGES = ["Watchlist", "Stock", "Does it beat simple rules?", "How it works"]
+PAGES = ["Watchlist", "Stock", "News", "Does it beat simple rules?", "How it works"]
 if st.session_state.get("page") not in PAGES:
     st.session_state["page"] = PAGES[0]
 if "my_picks" not in st.session_state:
@@ -448,6 +448,11 @@ if "detail" not in st.session_state:
 def go_stock(t):
     st.session_state["detail"] = t
     st.session_state["page"] = "Stock"
+
+
+def go_news(t):
+    st.session_state["news_t"] = t
+    st.session_state["page"] = "News"
 
 
 def on_search():
@@ -571,7 +576,123 @@ def page_watchlist():
 
 
 # ==== page 2: stock =======================================================================
-RANGES = {"1M": 21, "3M": 63, "6M": 126, "1Y": 252, "3Y": 10_000}
+RANGES = {"1H": None, "1D": None, "1W": None, "1M": 21, "3M": 63, "6M": 126, "1Y": 252,
+          "3Y": 10_000}
+INTRADAY = ("1H", "1D", "1W")
+
+
+@st.cache_data
+def load_intraday():
+    path = APP_DIR / "app_intraday.parquet"
+    return pd.read_parquet(path).sort_values(["ticker", "ts"]) if path.exists() else None
+
+
+def intraday_chart(t, rng, prev_close):
+    """1H / 1D: one-minute bars of the latest session; 1W: 5-minute bars of the last 5."""
+    it = load_intraday()
+    it = None if it is None else it[it["ticker"] == t]
+    if it is None or it.empty:
+        html("<div class='note'>No intraday prices saved for this stock.</div>")
+        return
+    day = it["ts"].dt.normalize()
+    if rng == "1W":
+        v = (it.set_index("ts").groupby(pd.Grouper(freq="5min"))
+             .agg(open=("open", "first"), high=("high", "max"), low=("low", "min"),
+                  close=("close", "last"), volume=("volume", "sum"))
+             .dropna(subset=["close"]).reset_index())
+        ref, ref_label = v["close"].iloc[0], "the start of the week"
+    else:
+        v = it[day == day.max()].copy()
+        if rng == "1H":
+            v = v[v["ts"] > v["ts"].max() - pd.Timedelta(minutes=60)]
+            ref, ref_label = v["close"].iloc[0], "an hour earlier"
+        else:
+            ref, ref_label = prev_close, "the previous close"
+    move = v["close"].iloc[-1] / ref - 1
+    line_c = YELLOW if move >= 0 else RED_TXT
+    fill_c = "rgba(255,207,64,0.10)" if move >= 0 else "rgba(200,16,46,0.14)"
+    fig = make_subplots(rows=2, cols=1, shared_xaxes=True, row_heights=[0.8, 0.2],
+                        vertical_spacing=0.03)
+    fig.add_scatter(x=v["ts"], y=v["close"], name="Price", line=dict(color=line_c, width=2),
+                    fill="tozeroy", fillcolor=fill_c, showlegend=False,
+                    hovertemplate="$%{y:,.2f}<extra></extra>", row=1, col=1)
+    fig.add_hline(y=ref, line=dict(color=MUTED, dash="dot", width=1), row=1, col=1,
+                  annotation_text=f"{ref_label[4:] if ref_label.startswith('the ') else ref_label} "
+                                  f"{money(ref)}", annotation_font_color=MUTED,
+                  annotation_position="bottom left")
+    vol_c = np.where(v["close"].diff().fillna(0) >= 0, "rgba(255,207,64,0.45)",
+                     "rgba(200,16,46,0.6)")
+    fig.add_bar(x=v["ts"], y=v["volume"], marker_color=vol_c, showlegend=False,
+                hovertemplate="Volume %{y:,.0f}<extra></extra>", row=2, col=1)
+    lo, hi = min(v["low"].min(), ref), max(v["high"].max(), ref)
+    pad = (hi - lo) * 0.08 or hi * 0.002
+    fig.update_yaxes(range=[lo - pad, hi + pad], tickprefix="$", row=1, col=1)
+    # the opening auction's volume would flatten every other bar
+    fig.update_yaxes(showticklabels=False, showgrid=False,
+                     range=[0, float(v["volume"].quantile(0.98)) * 1.25], row=2, col=1)
+    style_fig(fig, height=430)
+    fig.update_layout(hovermode="x unified", bargap=0.1, margin=dict(t=16))
+    fig.update_xaxes(rangebreaks=[dict(bounds=["sat", "mon"]),
+                                  dict(bounds=[16, 9.5], pattern="hour")],
+                     hoverformat="%a %d %b, %H:%M")
+    show(fig)
+    span = (f"{v['ts'].iloc[0]:%d %b} to {v['ts'].iloc[-1]:%d %b %Y}" if rng == "1W"
+            else f"{v['ts'].iloc[-1]:%d %b %Y}")
+    html(f"<div class='muted' style='margin-top:-0.4rem'>{signed_pct(move)} since "
+         f"{ref_label}. {'Five-minute' if rng == '1W' else 'One-minute'} prices, {span} "
+         f"(US Eastern time, regular hours). The crash-risk estimate below is daily, based on "
+         f"the {AS_OF} close.</div>")
+
+
+def daily_chart(t, p, rng):
+    view = p.tail(RANGES[rng])
+    h = load_history()
+    h = h[(h["ticker"] == t) & (h["date"] >= view["date"].iloc[0])].sort_values("date")
+    period_up = view["close"].iloc[-1] >= view["close"].iloc[0]
+    line_c = YELLOW if period_up else RED_TXT
+    fill_c = "rgba(255,207,64,0.10)" if period_up else "rgba(200,16,46,0.14)"
+    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.74, 0.06, 0.2],
+                        vertical_spacing=0.025)
+    ymin = view["low"].min() * 0.97
+    fig.add_scatter(x=view["date"], y=view["close"], name="Close", line=dict(color=line_c, width=2),
+                    fill="tozeroy", fillcolor=fill_c,
+                    hovertemplate="Close $%{y:,.2f}<extra></extra>", row=1, col=1)
+    crash = view[["date", "close"]].merge(h.loc[h["label"] == 1, ["date"]], on="date")
+    fig.add_scatter(x=crash["date"], y=crash["close"], mode="markers",
+                    name="A 10%+ drop came within 20 days",
+                    marker=dict(color=WHITE, size=7, symbol="triangle-down",
+                                line=dict(color="#000", width=0.5)),
+                    hovertemplate="A 10%+ drop followed<extra></extra>", row=1, col=1)
+    # risk-status ribbon: one coloured cell per day (word in the hover, legend below)
+    ribbon = {"red": RED, "amber": "#b38a1a", "green": "#d9d4c7"}
+    for lvl in ["red", "amber", "green"]:
+        d = h[h["level"] == lvl]
+        word = LEVEL[lvl][0]
+        fig.add_bar(x=d["date"], y=np.ones(len(d)), name=f"Model status: {word}",
+                    marker_color=ribbon[lvl], marker_line_width=0,
+                    showlegend=len(d) > 0, legendgroup=lvl,
+                    customdata=(d["p_v3"] * 100).to_numpy(),
+                    hovertemplate=f"Status {word} (%{{customdata:.1f}}%)<extra></extra>",
+                    row=2, col=1)
+    vol_c = np.where(view["close"].diff().fillna(0) >= 0, "rgba(255,207,64,0.45)",
+                     "rgba(200,16,46,0.6)")
+    fig.add_bar(x=view["date"], y=view["volume"], name="Volume", marker_color=vol_c,
+                showlegend=False, hovertemplate="Volume %{y:,.0f}<extra></extra>", row=3, col=1)
+    fig.update_yaxes(range=[ymin, view["high"].max() * 1.02], tickprefix="$", row=1, col=1)
+    fig.update_yaxes(showticklabels=False, showgrid=False, range=[0, 1], row=2, col=1)
+    fig.update_yaxes(showticklabels=False, showgrid=False, row=3, col=1)
+    style_fig(fig, height=500)
+    fig.update_layout(hovermode="x unified", bargap=0, barmode="overlay")
+    fig.update_xaxes(hoverformat="%d %b %Y", rangebreaks=[dict(bounds=["sat", "mon"])],
+                     range=[view["date"].iloc[0] - pd.Timedelta(days=1),
+                            view["date"].iloc[-1] + pd.Timedelta(days=1)])
+    show(fig)
+    html("<div class='muted' style='margin-top:-0.4rem'>The thin band under the price shows the "
+         "model's status each day (red = Warning, gold = Watch, white = Stable). White triangles "
+         "mark days that were followed by a real 10%+ drop within 20 trading days.</div>")
+
+
+
 
 
 def key_stats(p, r):
@@ -628,53 +749,14 @@ def page_stock():
         st.button("Remove from watchlist" if inside else "Add to watchlist", key="watch_btn",
                   on_click=toggle_watch, args=(t,), type="secondary" if inside else "primary")
 
-    rng = st.radio("Range", list(RANGES), index=3, horizontal=True, key="_range",
+    rng = st.radio("Range", list(RANGES), index=6, horizontal=True, key="_range",
                    label_visibility="collapsed")
-    view = p.tail(RANGES[rng])
-    h = load_history()
-    h = h[(h["ticker"] == t) & (h["date"] >= view["date"].iloc[0])].sort_values("date")
-    period_up = view["close"].iloc[-1] >= view["close"].iloc[0]
-    line_c = YELLOW if period_up else RED_TXT
-    fill_c = "rgba(255,207,64,0.10)" if period_up else "rgba(200,16,46,0.14)"
-    fig = make_subplots(rows=3, cols=1, shared_xaxes=True, row_heights=[0.74, 0.06, 0.2],
-                        vertical_spacing=0.025)
-    ymin = view["low"].min() * 0.97
-    fig.add_scatter(x=view["date"], y=view["close"], name="Close", line=dict(color=line_c, width=2),
-                    fill="tozeroy", fillcolor=fill_c,
-                    hovertemplate="Close $%{y:,.2f}<extra></extra>", row=1, col=1)
-    crash = view[["date", "close"]].merge(h.loc[h["label"] == 1, ["date"]], on="date")
-    fig.add_scatter(x=crash["date"], y=crash["close"], mode="markers",
-                    name="A 10%+ drop came within 20 days",
-                    marker=dict(color=WHITE, size=7, symbol="triangle-down",
-                                line=dict(color="#000", width=0.5)),
-                    hovertemplate="A 10%+ drop followed<extra></extra>", row=1, col=1)
-    # risk-status ribbon: one coloured cell per day (word in the hover, legend below)
-    ribbon = {"red": RED, "amber": "#b38a1a", "green": "#d9d4c7"}
-    for lvl in ["red", "amber", "green"]:
-        d = h[h["level"] == lvl]
-        word = LEVEL[lvl][0]
-        fig.add_bar(x=d["date"], y=np.ones(len(d)), name=f"Model status: {word}",
-                    marker_color=ribbon[lvl], marker_line_width=0,
-                    showlegend=len(d) > 0, legendgroup=lvl,
-                    customdata=(d["p_v3"] * 100).to_numpy(),
-                    hovertemplate=f"Status {word} (%{{customdata:.1f}}%)<extra></extra>",
-                    row=2, col=1)
-    vol_c = np.where(view["close"].diff().fillna(0) >= 0, "rgba(255,207,64,0.45)",
-                     "rgba(200,16,46,0.6)")
-    fig.add_bar(x=view["date"], y=view["volume"], name="Volume", marker_color=vol_c,
-                showlegend=False, hovertemplate="Volume %{y:,.0f}<extra></extra>", row=3, col=1)
-    fig.update_yaxes(range=[ymin, view["high"].max() * 1.02], tickprefix="$", row=1, col=1)
-    fig.update_yaxes(showticklabels=False, showgrid=False, range=[0, 1], row=2, col=1)
-    fig.update_yaxes(showticklabels=False, showgrid=False, row=3, col=1)
-    style_fig(fig, height=500)
-    fig.update_layout(hovermode="x unified", bargap=0, barmode="overlay")
-    fig.update_xaxes(hoverformat="%d %b %Y", rangebreaks=[dict(bounds=["sat", "mon"])],
-                     range=[view["date"].iloc[0] - pd.Timedelta(days=1),
-                            view["date"].iloc[-1] + pd.Timedelta(days=1)])
-    show(fig)
-    html("<div class='muted' style='margin-top:-0.4rem'>The thin band under the price shows the "
-         "model's status each day (red = Warning, gold = Watch, white = Stable). White triangles "
-         "mark days that were followed by a real 10%+ drop within 20 trading days.</div>")
+    if rng in INTRADAY:
+        intraday_chart(t, rng, float(prev["close"]))
+    else:
+        daily_chart(t, p, rng)
+    st.button("News and drop history for " + t + " →", key="news_btn", type="tertiary",
+              on_click=go_news, args=(t,))
 
     left, right = st.columns([1.05, 1], gap="large")
     with left:
@@ -995,6 +1077,127 @@ def backtest_section():
         html(f"<div class='muted'>{note.read_text()}</div>")
 
 
+# ==== page: news and drop history =========================================================
+@st.cache_data
+def load_news():
+    path = APP_DIR / "app_news.json"
+    return json.loads(path.read_text()) if path.exists() else None
+
+
+def headline_list(items, empty="No matching English headlines found for these dates."):
+    if not items:
+        html(f"<div class='muted'>{empty}</div>")
+        return
+    rows = []
+    for a in items:
+        rows.append(f"<div class='why-row'><a href='{a['url']}' target='_blank' "
+                    f"style='color:{WHITE}; text-decoration:none'>{a['title']}</a>"
+                    f"<div class='muted'>{a['source']} · {pd.Timestamp(a['date']):%d %b %Y}</div></div>")
+    html("".join(rows))
+
+
+def drop_story(t, d):
+    """Plain-English facts about one drop, from prices and the model only."""
+    when = pd.Timestamp(d["date"]).strftime("%d %b %Y")
+    parts = [f"On <b>{when}</b> {t} closed <b class='down'>{abs(d['ret']) * 100:.1f}% lower</b>."]
+    m, sec = d.get("mkt_ret"), d.get("sector_ret")
+    if d["kind"] == "Market-wide sell-off":
+        parts.append(f"The whole market fell too (S&P 500 {m * 100:+.1f}%), so this was part of a "
+                     f"<b>market-wide sell-off</b>.")
+    elif d["kind"] == "Sector-wide fall":
+        parts.append(f"Similar companies fell as well (sector average {sec * 100:+.1f}%, S&P 500 "
+                     f"{m * 100:+.1f}%), so this looks like a <b>sector-wide fall</b>.")
+    else:
+        parts.append(f"The market barely moved (S&P 500 {m * 100:+.1f}%, sector average "
+                     f"{sec * 100:+.1f}%), so this was <b>specific to the company</b>: usually "
+                     f"earnings, guidance or company news.")
+    if d.get("level_before"):
+        word = LEVEL[d["level_before"]][0]
+        parts.append(f"The day before, the model's status was <b>{word}</b> "
+                     f"({pct(d['p_before'], 1)} chance of a 10% drop).")
+    if d.get("next20") is not None and d.get("next20_days", 0) >= 5:
+        n = d["next20_days"]
+        parts.append(f"Over the next {n} trading days the price moved "
+                     f"{signed_pct(d['next20'], 1)}.")
+    return " ".join(parts)
+
+
+def page_news():
+    news = load_news()
+    st.title("News and drop history")
+    html("<p style='max-width:860px'>Why do big drops happen? For each stock's worst day since "
+         "2023 we show the facts from the prices (did the whole market fall, or just this "
+         "company?), what our model said the day before, and headlines published around that "
+         "date. <b style='color:" + WHITE + "'>A headline near a drop does not prove it caused "
+         "the drop.</b></p>")
+    if not news:
+        html("<div class='note'>News has not been downloaded yet (run src/10_news.py).</div>")
+        return footer()
+
+    default = st.session_state.get("news_t") or st.session_state["detail"]
+    st.session_state["_news_pick"] = default
+    t = st.selectbox("Stock", TICKERS, key="_news_pick", format_func=label_of,
+                     on_change=lambda: st.session_state.update(news_t=st.session_state["_news_pick"]))
+    info = news["stocks"].get(t, {"drops": [], "recent": []})
+    left, right = st.columns([1.15, 1], gap="large")
+    with left:
+        st.markdown(f"#### {t}'s worst day since 2023")
+        if not info["drops"]:
+            html("<div class='muted'>No single-day fall of 5% or more since 2023.</div>")
+        for d in info["drops"]:
+            html(f"<div style='margin:0.2rem 0 0.6rem 0'><span class='pill' style='color:{RED_TXT}'>"
+                 f"<span class='dot' style='background:{RED_TXT}; box-shadow:0 0 8px {RED_TXT}'>"
+                 f"</span>{d['kind']}</span></div><p>{drop_story(t, d)}</p>")
+            st.markdown("<div class='muted' style='margin-top:0.4rem'>Headlines from the day "
+                        "before to the day after</div>", unsafe_allow_html=True)
+            headline_list(d["headlines"])
+    with right:
+        st.markdown(f"#### Recent headlines")
+        html(f"<div class='muted'>Published in the week up to {AS_OF}</div>")
+        headline_list(info["recent"], "No English headlines found for this week.")
+        st.button(f"Open {t}'s stock page →", key="news_to_stock", type="tertiary",
+                  on_click=go_stock, args=(t,))
+
+    # --- across all stocks: did the model warn before the worst days? ----------------------
+    rows = [(tk, d) for tk, v in news["stocks"].items() for d in v["drops"]]
+    if rows:
+        st.markdown("#### Every stock's worst day since 2023")
+        df = pd.DataFrame([{"Stock": tk, "Date": d["date"], "Fall": d["ret"], "Kind": d["kind"],
+                            "S&P 500 that day": d["mkt_ret"],
+                            "Model the day before": LEVEL[d["level_before"]][0]
+                            if d.get("level_before") else "–"} for tk, d in rows])
+        warned = (df["Model the day before"] == "Warning").mean()
+        watch = (df["Model the day before"].isin(["Warning", "Watch"])).mean()
+        kinds = df["Kind"].value_counts(normalize=True)
+        k = st.columns(4)
+        k[0].markdown(kpi("Worst days explained", f"{len(df)}"), unsafe_allow_html=True)
+        k[1].markdown(kpi("Model on Warning the day before", pct(warned), YELLOW),
+                      unsafe_allow_html=True)
+        k[2].markdown(kpi("Company-specific", pct(kinds.get("Company-specific", 0))),
+                      unsafe_allow_html=True)
+        k[3].markdown(kpi("Market-wide", pct(kinds.get("Market-wide sell-off", 0)), RED_TXT),
+                      unsafe_allow_html=True)
+        html(f"<div class='muted' style='margin:0.4rem 0 0.6rem 0'>For comparison, the model is on "
+             f"Warning on about {pct(TH['val_warn_share_red'])} of days in 2019–20. Single-day "
+             f"falls are not the 20-day drops the model was built for, and most of these dates "
+             f"fall inside periods already used to report results, so treat this as an "
+             f"illustration, not a test. Company-specific falls (often earnings surprises) are "
+             f"the hardest to see coming from prices alone.</div>")
+        show_df = df.sort_values("Fall").head(25).copy()
+        show_df["Date"] = pd.to_datetime(show_df["Date"]).dt.strftime("%d %b %Y")
+        table(show_df, {"Fall": "{:+.1%}", "S&P 500 that day": "{:+.1%}"})
+
+    if news.get("market"):
+        st.markdown("#### The market's worst days since 2023")
+        for m in sorted(news["market"], key=lambda x: x["date"], reverse=True):
+            with st.expander(f"{pd.Timestamp(m['date']):%d %b %Y} · S&P 500 "
+                             f"{m['ret'] * 100:+.1f}%"):
+                headline_list(m["headlines"])
+    html(f"<div class='muted' style='margin-top:1rem'>Headlines: {news['source']}, fetched "
+         f"{news['fetched']}. Links open the original publisher.</div>")
+    footer()
+
+
 # ==== page 4: how it works ================================================================
 def page_how():
     st.title("How it works")
@@ -1051,17 +1254,22 @@ Warning levels, all fixed using 2019–20 data only:
   fewer truly independent examples than rows. We used a monthly block bootstrap for this.
 - **False alarms cost something:** most warnings (about 80%) are *not* followed by a 10% drop.
   Acting on every warning can mean selling too early and missing gains (see the stress test).
-- **Data snapshot, not live:** prices end on **{AS_OF}**. The chances describe that date.
+- **Data snapshot, not live:** prices end on **{AS_OF}**. The chances describe that date. The
+  model itself and every test result use data up to 27 Feb 2026 and were not changed when the
+  app's prices were refreshed.
+- **Headlines are context, not causes:** the News page shows what was published around a drop;
+  it cannot prove why a price fell.
 - **Small edge over the volatility rule:** consistent, but small. The volatility rule alone
   already captures most of the signal; the 200-day rule is clearly weaker.
 - Large US stocks only; no news, earnings dates or fundamentals.
 
 #### Sources
-Prices: Yahoo Finance via the `yfinance` library. Tools: LightGBM, scikit-learn, pandas,
+Prices: Yahoo Finance via the `yfinance` library (daily prices, plus one-minute prices for
+the 1H / 1D / 1W charts). Headlines: the GDELT Project (gdeltproject.org). Tools: LightGBM, scikit-learn, pandas,
 Streamlit, Plotly. AI assistant: Claude (Anthropic) helped write code.
 """)
     footer()
 
 
-{"Watchlist": page_watchlist, "Stock": page_stock, "Does it beat simple rules?": page_results,
- "How it works": page_how}[page]()
+{"Watchlist": page_watchlist, "Stock": page_stock, "News": page_news,
+ "Does it beat simple rules?": page_results, "How it works": page_how}[page]()

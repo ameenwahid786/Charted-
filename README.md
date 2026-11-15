@@ -66,8 +66,11 @@ python src/06f_v4_experiments.py  # pre-registered v4 candidates, validation onl
 python src/01_download.py --holdout2  # needs internet: 96 more holdout stocks (pre-registered)
 python src/06g_holdout2.py     # second fresh test of v3 (run once)
 python src/06h_baselines.py    # v3 vs every baseline, year by year, all tests
+python src/01b_download_live.py  # needs internet: app snapshot prices to the latest close
+                                 # (data/raw_live/ + one-minute bars); data/raw/ is untouched
 python src/08_app_data.py      # small precomputed app files -> data/app/ + results/thresholds_v3.json
 python src/09_backtest.py      # warnings-as-cash backtest -> results/backtest_*.csv
+python src/10_news.py          # needs internet, ~30 min: GDELT headlines around big drops
 ```
 
 `requirements.txt` is what the web app needs; `pip install -r requirements-dev.txt` adds
