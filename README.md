@@ -10,7 +10,7 @@ Many beginners buy or hold stocks without knowing how risky they are, which leav
 
 A beginner enters a stock they plan to hold or buy. The tool returns the estimated chance that its close falls 10% or more below today’s price within 20 trading days as a risk metric, with a plain-English explanation of what is driving that number and how it compares with the typical stock. It helps someone see the risk before they commit their money, so they can make a safer decision. 
 
-We compare our model against a simple baseline, a rule that warns when a stock’s 20-day volatility is in the top 20%, to see which predicts these drops better, using a PR-AUC.
+We compare our model against 2 simple baselines, a rule that warns when a stock’s 20-day volatility is in the top 20%, and a 200-day moving average rule, to see which predicts these drops better, using a PR-AUC.
 
 This project is a prototype and is not financial advice
 
@@ -29,15 +29,18 @@ We included several checks to clean the data and prevent againast leakage:
    - Included a warm up period (our data was collected from 2009 but we only started training on data from 2010 to ensure 1 year features have sufficient historical data)
    - Ensured that the final 20 trading days of each stock were excluded because they don't have a complete 20 day prediction window
    - Removed invalid values such as division by zero volume
-   - Added 20 day gaps between trianing, validation, and test data periods to prevent data leakage
+   - Added 20 day gaps between training, validation, and test data periods to prevent data leakage
 
 Model: We had 2 iterations of our model - our final model combines a simple volatility-based rule with a small LightGBM model to help learn corrections to its predictions. The volatility rule estimates the probability of a 10% drop, and the LightGBM model adjusts this probability upwards or downwards based on 16 additional signals. We chose LightGBM as it fits table-shaped data, which our model uses, better than alternatives, as well as being able to better explain the reasons behind its predictions (a key feature of our tool), as it can split each prediction into exact per-signal contributions.
 
 Our v1 model only used the LightGBM model, and it matched the simple volatility baseline.
 
 ## Results
+We used a Precision-Recall Area Under the Curve(PR-AUC) to evaluate our model against the baselines. Our results are as follows:
+
 Our baseline scored X. Our model scored Y on held-out test data.
-Where it fails, and why we think so.
+
+Although our model outperformed the baselines, it still has its limitations
 ## What we'd do next
 One or two concrete next steps with more time.
 ## Sources
