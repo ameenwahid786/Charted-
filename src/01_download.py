@@ -17,7 +17,7 @@ import time
 
 import pandas as pd
 
-from common import (ALL_SYMBOLS, HOLDOUT_TICKERS, END, MANIFEST_PATH, MARKET_TICKERS, PRICE_COLS,
+from common import (ALL_SYMBOLS, HOLDOUT_TICKERS, HOLDOUT2_TICKERS, END, MANIFEST_PATH, MARKET_TICKERS, PRICE_COLS,
                     RAW_DIR, START, TICKER_SECTOR, csv_path, load_raw)
 
 
@@ -131,13 +131,16 @@ def main():
     ap.add_argument("--check", action="store_true", help="offline check only")
     ap.add_argument("--holdout", action="store_true",
                     help="download/check the 50 fresh holdout stocks instead")
+    ap.add_argument("--holdout2", action="store_true",
+                    help="download/check the pre-registered holdout-2 stocks (model v4)")
     ap.add_argument("--batch-size", type=int, default=20)
     ap.add_argument("--pause", type=float, default=2.0, help="seconds between batches")
     ap.add_argument("--retries", type=int, default=3)
     args = ap.parse_args()
 
     RAW_DIR.mkdir(parents=True, exist_ok=True)
-    symbols = HOLDOUT_TICKERS if args.holdout else ALL_SYMBOLS
+    symbols = (HOLDOUT2_TICKERS if args.holdout2 else
+               HOLDOUT_TICKERS if args.holdout else ALL_SYMBOLS)
 
     if not args.check:
         todo = symbols if args.force else [s for s in symbols
@@ -149,8 +152,9 @@ def main():
         if failed:
             print(f"\nStill failing: {failed}\nRe-run later; cached ones are kept.")
 
-    ok = check(symbols, args.start,
-               MANIFEST_PATH.with_name('_manifest_holdout.csv') if args.holdout else MANIFEST_PATH)
+    manifest = (MANIFEST_PATH.with_name('_manifest_holdout2.csv') if args.holdout2 else
+                MANIFEST_PATH.with_name('_manifest_holdout.csv') if args.holdout else MANIFEST_PATH)
+    ok = check(symbols, args.start, manifest)
     print("\nDONE: every symbol loads from disk." if ok else "\nNOT DONE yet (see above).")
     sys.exit(0 if ok else 1)
 

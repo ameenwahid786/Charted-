@@ -138,3 +138,28 @@ HOLDOUT_SECTORS = {
 }
 HOLDOUT_TICKERS = [t for g in HOLDOUT_SECTORS.values() for t in g]
 assert not set(HOLDOUT_TICKERS) & set(TICKERS), "holdout overlaps the main universe"
+
+
+# ---------------------------------------------------------------------------
+# Holdout 2 (pre-registered for model v4, see results/v4_preregistration.md):
+# another set of large US stocks, in neither TICKERS nor HOLDOUT_TICKERS, fixed
+# BEFORE any v4 candidate was built or scored. Used exactly once, by 06g.
+# ---------------------------------------------------------------------------
+HOLDOUT2_SECTORS = {
+    "Technology": ["MCHP", "NTAP", "GLW", "APH", "MSI", "PAYX", "ADP", "FIS", "CDNS", "SNPS",
+                   "AKAM", "TER", "SWKS", "FTNT"],
+    "Consumer": ["BBY", "DG", "DLTR", "GPC", "HAS", "EL", "TSN", "CAG", "HRL", "MKC", "STZ",
+                 "CHD", "LUV", "DAL", "CMG", "ULTA", "TSCO"],
+    "Health Care": ["BAX", "BIIB", "CAH", "MCK", "ZBH", "EW", "LH", "RMD", "A", "IDXX", "HCA",
+                    "CNC"],
+    "Financials": ["COF", "FITB", "KEY", "MTB", "NTRS", "STT", "TROW", "SPGI", "MCO", "MMC",
+                   "AON", "ALL", "PGR", "CB", "HIG", "CINF", "BEN", "RF"],
+    "Industrials": ["CMI", "PCAR", "PH", "ROK", "DOV", "SWK", "NSC", "WM", "CTAS", "FAST",
+                    "GWW", "EXPD", "JBHT", "AME", "ROP"],
+    "Energy, Utilities, Real Estate & Materials": [
+        "PSX", "MPC", "KMI", "ED", "PEG", "SRE", "WEC", "ES", "DTE", "ETR", "PSA", "EQIX",
+        "WELL", "DLR", "IP", "PPG", "IFF", "ALB", "MLM", "VMC"],
+}
+HOLDOUT2_TICKERS = [t for g in HOLDOUT2_SECTORS.values() for t in g]
+assert not set(HOLDOUT2_TICKERS) & (set(TICKERS) | set(HOLDOUT_TICKERS)), "holdout 2 overlaps"
+assert len(set(HOLDOUT2_TICKERS)) == len(HOLDOUT2_TICKERS)
