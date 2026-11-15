@@ -60,6 +60,11 @@ v3 PR-AUC **0.233** vs volatility rule **0.216** vs v1 0.217 vs 200-day rule 0.1
 Monthly block bootstrap (1000×): v3 wins **99%**, gap +0.017, 95% CI +0.004 to +0.029. Years won **4 of 5** (2021 lost by
 0.001). Stocks won **21 of 49** (report honestly: edge comes from ranking across stocks/dates, not within every stock).
 Original test (third look, disclosed): v3 0.204 vs 0.191. Accuracy trap: never-warn has the best accuracy (0.88) and 0 recall.
+**v4 attempt (pre-registered, `results/v4_preregistration.md`):** 4 candidates with Parkinson high-low / EWMA volatility
+starting points (`src/model_v4.py`, `src/06f_v4_experiments.py`); none beat v3 on validation (best 0.241 vs 0.251) → no v4,
+app stays on v3. **Holdout 2** (95 more unseen stocks, `HOLDOUT2_TICKERS`, MMC failed; `src/06g_holdout2.py`, run once):
+v3 0.183 vs vol rule 0.169, bootstrap 100% (CI +0.007 to +0.022), years 5/5, stocks 39/95, precision 0.182 vs 0.172,
+recall 0.524 vs 0.461. Report: `results/v4_holdout2_report.md`. Backtest (09): warnings cut max drawdown but lose to buy-and-hold.
 Feature importance (v1): vol_60 42%, vol_20 24%, drawdown_252 9%, beta_60 8%.
 
 ## What is left to build

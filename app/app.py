@@ -478,6 +478,62 @@ def page_detail():
 
 
 # ==== page 3: does it beat a simple rule? ================================================
+def second_test_line():
+    m2, b2 = load_csv("holdout2_metrics.csv"), load_json("holdout2_bootstrap.json")
+    sm = load_json("holdout2_summary.json")
+    if m2 is None or b2 is None or sm is None:
+        return ""
+    m2 = m2.set_index("method")
+    return (f"<div style='margin-top:0.9rem; padding-top:0.8rem; border-top:1px solid #262626'>"
+            f"<b>Confirmed on a second, pre-registered test</b> with {sm['n_stocks']} more "
+            f"never-used stocks: v3 <b class='num' style='color:{C_V3}'>"
+            f"{m2.loc['Model v3 (rule + corrections)', 'PR_AUC']:.3f}</b> vs rule "
+            f"<b class='num' style='color:{C_VOL}'>{m2.loc['Volatility rule', 'PR_AUC']:.3f}"
+            f"</b> · won <b>{pct(b2['win_share'])}</b> of bootstrap resamples · "
+            f"<b>{sm['years_won']} of {sm['n_years']}</b> years.</div>")
+
+
+def holdout2_section():
+    m2, b2 = load_csv("holdout2_metrics.csv"), load_json("holdout2_bootstrap.json")
+    sm, yr2 = load_json("holdout2_summary.json"), load_csv("holdout2_by_year.csv")
+    if m2 is None or b2 is None or sm is None:
+        return
+    st.markdown("#### Second fresh test: 95 more stocks, pre-registered")
+    st.markdown(
+        f"Before trying to improve v3, we wrote down the rules and picked a second set of "
+        f"{sm['n_stocks']} large US stocks never used anywhere (see "
+        f"`results/v4_preregistration.md`). None of our 4 new candidate models beat v3 on "
+        f"2019–20 data, so v3 stayed. The second test ran once: v3 won again, and this "
+        f"time it also caught more drops (recall) **and** gave more accurate warnings "
+        f"(precision) at the fixed warning line.")
+    c1, c2 = st.columns([3, 2])
+    with c1:
+        h1 = load_csv("holdout_metrics.csv").set_index("method")
+        m2i = m2.set_index("method")
+        fig = go.Figure()
+        for k, col in [("Model v3 (rule + corrections)", C_V3), ("Volatility rule", C_VOL)]:
+            vals = [h1.loc[k, "PR_AUC"], m2i.loc[k, "PR_AUC"]]
+            fig.add_bar(x=["Holdout 1 (49 stocks)", f"Holdout 2 ({sm['n_stocks']} stocks)"],
+                        y=vals, name=METHOD_STYLE[k][0], marker_color=col,
+                        text=[f"{v:.3f}" for v in vals], textposition="outside",
+                        hovertemplate=f"{METHOD_STYLE[k][0]}<br>%{{x}}: %{{y:.3f}}<extra></extra>")
+        fig.update_layout(barmode="group")
+        fig.update_yaxes(range=[0, 0.28])
+        show(style_fig(fig, height=340, y_title="PR-AUC (higher is better)"))
+    with c2:
+        t = m2.copy()
+        t["method"] = t["method"].map(lambda k: METHOD_STYLE.get(k, (k,))[0])
+        t = t.rename(columns={"method": "Method", "PR_AUC": "PR-AUC", "precision": "Precision",
+                              "recall": "Recall"})[["Method", "PR-AUC", "Precision", "Recall"]]
+        st.dataframe(t, hide_index=True, column_config={
+            c: st.column_config.NumberColumn(format="%.3f") for c in ["PR-AUC", "Precision", "Recall"]})
+        st.caption(f"Bootstrap: v3 won {pct(b2['win_share'])} of {b2['n_boot']:,} resamples, gap "
+                   f"{b2['gap_mean']:+.3f} (95% CI {b2['ci_low']:+.3f} to {b2['ci_high']:+.3f}). "
+                   f"Years won {sm['years_won']} of {sm['n_years']}. Stocks won "
+                   f"{sm['stocks_won']} of {sm['stocks_compared']}. "
+                   f"Not downloaded: {', '.join(sm['missing']) or 'none'}.")
+
+
 def page_results():
     st.title("Does it beat a simple rule?")
     hm = load_csv("holdout_metrics.csv").set_index("method")
@@ -499,6 +555,7 @@ def page_results():
     <div><div class="muted">Bootstrap resamples won</div><div class="big">{pct(boot['win_share'])}</div></div>
     <div><div class="muted">Years won</div><div class="big">{years_won} of {len(yr)}</div></div>
   </div>
+  {second_test_line()}
 </div>""", unsafe_allow_html=True)
     st.caption(f"PR-AUC: higher is better; it scores how well the warnings rank risky days "
                f"above safe ones. Guessing scores the crash rate "
@@ -564,7 +621,9 @@ def page_results():
             "Its edge comes from ranking risk *across* stocks and dates (which stock is riskier "
             "today, which periods are riskier), not from being better on every single stock.")
 
-    st.markdown("#### The full story: v1 → v2 → v3")
+    holdout2_section()
+
+    st.markdown("#### The full story: v1 → v2 → v3 → (no v4)")
     story = pd.DataFrame([
         ["v1", "LightGBM on 16 price features, trained 2010–18, tuned on 2019–20",
          "Tied the rule on the 2021–25 test: 0.192 vs 0.191"],
@@ -573,6 +632,10 @@ def page_results():
         ["v3", "Volatility rule + small learned corrections; volatility-scaled and same-day "
                "ranked features; chosen among 7 candidates on 2019–20 only",
          "Validation 0.251 vs 0.218. Fresh holdout 0.233 vs 0.216 (main result)"],
+        ["v4?", "4 pre-registered candidates using high/low-range and faster volatility "
+                "estimates, judged on 2019–20 only",
+         "None beat v3 on validation (best 0.241 vs 0.251), so no v4. v3 then won a second "
+         "fresh test: 0.183 vs 0.169 on 95 stocks"],
     ], columns=["Version", "What", "Result"])
     st.markdown("| Version | What | Result |\n|---|---|---|\n" + "\n".join(
         f"| **{v}** | {w} | {r} |" for v, w, r in story.itertuples(index=False)))
@@ -686,8 +749,9 @@ Warning levels, all fixed using 2019–20 data only:
 - **Train on the past, test on the future:** trained on 2010–18, choices made on 2019–20
   (validation), tested on 2021–25. 20-trading-day gaps between periods so no answer leaks
   across.
-- **Fresh holdout:** our final test uses 49 other large US stocks never used for anything
-  before v3 was frozen.
+- **Two fresh holdouts:** our main test uses 49 other large US stocks never used for
+  anything before v3 was frozen. A second, pre-registered test on 95 more stocks confirmed
+  the result (v3 0.183 vs rule 0.169, won 100% of bootstrap resamples and all 5 years).
 - **Precision** = of the warnings given, the share followed by a real 10% drop.
   **Recall** = of the real 10% drops, the share that got a warning beforehand.
   **PR-AUC** summarises precision and recall over every possible warning level (higher is

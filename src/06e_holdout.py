@@ -34,9 +34,9 @@ COLORS = {"Model v3 (rule + corrections)": "#2a78d6", "Volatility rule": "#eb683
 INK, INK2, SURFACE, GRID = "#0b0b0b", "#52514e", "#fcfcfb", "#e4e3df"
 
 
-def build_holdout():
-    available = [t for t in HOLDOUT_TICKERS if csv_path(t).exists()]
-    missing = sorted(set(HOLDOUT_TICKERS) - set(available))
+def build_holdout(tickers=HOLDOUT_TICKERS):
+    available = [t for t in tickers if csv_path(t).exists()]
+    missing = sorted(set(tickers) - set(available))
     if missing:
         print(f"Skipping holdout stocks that failed to download: {missing}")
     prices = load_all(available)
