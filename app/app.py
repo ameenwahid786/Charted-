@@ -62,16 +62,20 @@ p, li {{color: {TEXT};}}
 .up-big {{color: {GREEN}; text-shadow: 0 0 12px rgba(31,154,78,0.55);}}
 .hr {{border-top: 1px solid {LINE}; margin: 0.9rem 0;}}
 
-/* page tabs and range pickers: horizontal radios drawn as underlined text */
-div[role="radiogroup"] {{gap: 0.2rem 1.5rem;}}
-div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child {{display: none;}}
-div[role="radiogroup"] label[data-baseweb="radio"] {{padding: 0.3rem 0 0.35rem 0; margin: 0;
-    border-bottom: 2px solid transparent; transition: all .15s ease;}}
-div[role="radiogroup"] label[data-baseweb="radio"] p {{color: {MUTED}; font-size: 0.95rem;
-    font-weight: 500;}}
-div[role="radiogroup"] label[data-baseweb="radio"]:hover p {{color: {WHITE};}}
-div[role="radiogroup"] label[data-baseweb="radio"]:has(input:checked) {{border-bottom-color: {YELLOW};}}
-div[role="radiogroup"] label[data-baseweb="radio"]:has(input:checked) p {{color: {YELLOW};
+/* page tabs and range pickers: horizontal radios drawn as underlined text.
+   Streamlit <=1.5x uses label[data-baseweb=radio]; newer versions use label[data-testid=stRadioOption]. */
+div[role="radiogroup"] {{gap: 0.2rem 1.5rem !important;}}
+div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child,
+div[role="radiogroup"] label[data-testid="stRadioOption"] > div > div:first-child:not([data-testid="stMarkdownContainer"]) {{
+    display: none !important;}}
+div[role="radiogroup"] label {{padding: 0.3rem 0 0.35rem 0 !important; margin: 0 !important;
+    border-bottom: 2px solid transparent; transition: all .15s ease; background: transparent !important;}}
+div[role="radiogroup"] label p {{color: {MUTED} !important; font-size: 0.95rem; font-weight: 500;}}
+div[role="radiogroup"] label:hover p {{color: {WHITE} !important;}}
+div[role="radiogroup"] label:has(input:checked),
+div[role="radiogroup"] label[data-selected="true"] {{border-bottom-color: {YELLOW} !important;}}
+div[role="radiogroup"] label:has(input:checked) p,
+div[role="radiogroup"] label[data-selected="true"] p {{color: {YELLOW} !important;
     text-shadow: 0 0 12px rgba(255,207,64,0.5);}}
 
 /* search box: a soft pill */
@@ -81,9 +85,12 @@ div[data-testid="stSelectbox"] div[data-baseweb="select"] > div:focus-within {{
     border-color: {YELLOW}; box-shadow: 0 0 0 1px rgba(255,207,64,0.35), 0 0 18px rgba(255,207,64,0.15);}}
 
 /* watchlist chips: quiet, not blue */
-span[data-baseweb="tag"] {{background: #141414 !important; border: 1px solid #2a2a2a;
-    border-radius: 999px !important;}}
-span[data-baseweb="tag"] span {{color: {WHITE} !important;}}
+span[data-baseweb="tag"], [data-testid="stMultiSelect"] span[data-tag] {{
+    background: #161616 !important; border: 1px solid #2c2c2c !important;
+    border-radius: 999px !important; color: #cfc9bd !important;}}
+span[data-baseweb="tag"] span, [data-testid="stMultiSelect"] span[data-tag] span,
+[data-testid="stMultiSelect"] span[data-tag] svg {{color: #cfc9bd !important; fill: #8c867a !important;}}
+[data-testid="stMultiSelect"] span[data-tag]:hover {{border-color: #444 !important;}}
 div[data-testid="stMultiSelect"] div[data-baseweb="select"] > div {{background: #070707;
     border-color: #1c1c1c;}}
 
