@@ -31,7 +31,9 @@ We included several checks to clean the data and prevent againast leakage:
    - Removed invalid values such as division by zero volume
    - Added 20 day gaps between trianing, validation, and test data periods to prevent data leakage
 
-Model: We had 3 iterations of our model - our final model combines a simple volatility-based rule with a small LightGBM model to help learn corrections to its predictions. The volatility rule estimates the probability of a 10% drop, and the LightGBM model adjusts this probability upwards or downwards based on 16 additional signals. We chose 
+Model: We had 2 iterations of our model - our final model combines a simple volatility-based rule with a small LightGBM model to help learn corrections to its predictions. The volatility rule estimates the probability of a 10% drop, and the LightGBM model adjusts this probability upwards or downwards based on 16 additional signals. We chose LightGBM as it fits table-shaped data, which our model uses, better than alternatives, as well as being able to better explain the reasons behind its predictions (a key feature of our tool), as it can split each prediction into exact per-signal contributions.
+
+Our v1 model only used the LightGBM model, and it matched the simple volatility baseline.
 
 ## Results
 Our baseline scored X. Our model scored Y on held-out test data.
