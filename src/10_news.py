@@ -1,11 +1,13 @@
 """Module 10: news around big drops + recent headlines, saved for the app (needs internet).
 
-    python src/10_news.py          # ~30 min: GDELT allows one request every ~5 seconds
+    python src/10_news.py          # ~10 minutes
 
-Source: the GDELT Project DOC 2.0 API (free, no key, global news back to 2017).
+Source: Google News RSS search (free, no key), which supports date filters
+(after:/before:). GDELT was tried first but rate-limited us (HTTP 429).
 For each stock we take its worst single-day fall since 2023 (if 5% or worse) and the
 S&P 500's worst days, then fetch English headlines published from the day before to the
-day after. Headlines are what was published around a drop; they are NOT proof of cause.
+day after, each with its publication date. Plus each stock's headlines from the last week.
+Headlines are what was published around a drop; they are NOT proof of cause.
 
 Each drop also gets facts computed from prices only: the S&P 500 and same-sector moves
 that day (market-wide vs company-specific), whether model v3 was on Warning the day
@@ -20,6 +22,7 @@ import re
 import time
 import urllib.parse
 import urllib.request
+import xml.etree.ElementTree as ET
 
 import numpy as np
 import pandas as pd
@@ -28,10 +31,10 @@ from common import DATA_DIR, load_live
 
 APP_DIR = DATA_DIR / "app"
 CACHE = DATA_DIR / "news_cache"
-API = "https://api.gdeltproject.org/api/v2/doc/doc"
-PAUSE = 10.0
+API = "https://news.google.com/rss/search"
+SOURCE = "Google News (news.google.com), linking to the original publishers"
+PAUSE = 1.5
 UA = {"User-Agent": "Mozilla/5.0 (compatible; charted-student-project)"}
-BATCH = 6               # companies per query for the recent-headlines search
 DROP_MIN = -0.05        # a stock's worst day must be at least this bad to be explained
 MARKET_DROPS = 6
 
@@ -41,47 +44,56 @@ def short_name(name):
     return re.sub(r"\b(Inc\.|Corp|Company|Companies|Group|Holdings)\b", "", name).strip(" .,")
 
 
-def gdelt(query, start, end, n=10):
-    """One GDELT artlist query (cached). start/end: Timestamps."""
-    params = {"query": f"{query} sourcelang:english", "mode": "artlist", "format": "json",
-              "maxrecords": str(n), "sort": "hybridrel",
-              "startdatetime": start.strftime("%Y%m%d000000"),
-              "enddatetime": end.strftime("%Y%m%d235959")}
-    url = API + "?" + urllib.parse.urlencode(params)
+def fetch(query, start, end):
+    """Headlines published on start..end (inclusive dates), cached.
+    Returns [{title, url, source, date}]."""
+    q = (f"{query} after:{(start - pd.Timedelta(days=1)):%Y-%m-%d} "
+         f"before:{(end + pd.Timedelta(days=1)):%Y-%m-%d}")
+    url = API + "?" + urllib.parse.urlencode({"q": q, "hl": "en-US", "gl": "US", "ceid": "US:en"})
     CACHE.mkdir(parents=True, exist_ok=True)
-    f = CACHE / (hashlib.md5(url.encode()).hexdigest() + ".json")
+    f = CACHE / ("g_" + hashlib.md5(url.encode()).hexdigest() + ".json")
     if f.exists():
         return json.loads(f.read_text())
-    for attempt in range(5):
+    for attempt in range(4):
         time.sleep(PAUSE)
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
-                body = r.read().decode("utf-8", "replace")
-            data = json.loads(body) if body.strip().startswith("{") else None
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=40) as r:
+                root = ET.fromstring(r.read())
+            break
         except Exception as e:
             print(f"    retry {attempt + 1}: {str(e)[:60]}", flush=True)
-            data = None
-        if data is not None:
-            arts = data.get("articles", [])
-            f.write_text(json.dumps(arts))
-            return arts
-        time.sleep(60 * (attempt + 1))  # rate-limited (429) or a hiccup: back off properly
-    return []
-
-
-def headlines(arts, must=None, k=5):
-    out, seen = [], set()
-    for a in arts:
-        title = (a.get("title") or "").strip()
-        key = re.sub(r"\W+", " ", title.lower()).strip()
-        if not title or key in seen or "archives" in key or len(title) < 25:
+            time.sleep(20 * (attempt + 1))
+    else:
+        return []
+    arts = []
+    for it in root.findall(".//item"):
+        source = it.findtext("source") or ""
+        title = (it.findtext("title") or "").strip()
+        if source and title.endswith(" - " + source):
+            title = title[: -len(source) - 3].strip()
+        try:
+            date = pd.to_datetime(it.findtext("pubDate"), format="%a, %d %b %Y %H:%M:%S %Z").strftime("%Y-%m-%d")
+        except Exception:
             continue
-        if must and not any(m.lower() in title.lower() for m in must):
+        arts.append({"title": title, "url": it.findtext("link"), "source": source, "date": date})
+    f.write_text(json.dumps(arts))
+    return arts
+
+
+def headlines(arts, must=None, k=5, start=None, end=None):
+    out, seen = [], set()
+    for a in sorted(arts, key=lambda a: a["date"], reverse=True):
+        title = a["title"]
+        key = re.sub(r"\W+", " ", title.lower()).strip()
+        if not title or key in seen or len(title) < 25:
+            continue
+        if start is not None and not (start <= pd.Timestamp(a["date"]) <= end):
+            continue
+        if must and not any(re.search(r"\b" + re.escape(m.lower()) + r"\b", title.lower())
+                            for m in must):
             continue
         seen.add(key)
-        out.append({"title": title, "url": a.get("url"), "source": a.get("domain"),
-                    "date": pd.to_datetime(a.get("seendate"), format="%Y%m%dT%H%M%SZ")
-                    .strftime("%Y-%m-%d")})
+        out.append(a)
         if len(out) == k:
             break
     return out
@@ -119,7 +131,7 @@ def main():
                 "p_before": float(before["p_v3"].iloc[0]) if len(before) else None,
                 "next20": nxt, "next20_days": int(min(20, len(after) - 1))}
 
-    out = {"source": "GDELT Project (gdeltproject.org), DOC 2.0 API",
+    out = {"source": SOURCE,
            "fetched": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"), "as_of": meta["as_of"],
            "market": [], "stocks": {}}
 
@@ -132,10 +144,10 @@ def main():
         if len(picked) == MARKET_DROPS:
             break
     for d in sorted(picked):
-        arts = gdelt('("stock market" OR "Wall Street" OR "S&P 500") (stocks OR selloff OR plunge)',
-                     d - pd.Timedelta(days=1), d + pd.Timedelta(days=1))
+        a, b = d - pd.Timedelta(days=1), d + pd.Timedelta(days=1)
+        arts = fetch('("stock market" OR "Wall Street" OR "S&P 500") stocks', a, b)
         out["market"].append({"date": d.strftime("%Y-%m-%d"), "ret": float(spx_ret[d]),
-                              "headlines": headlines(arts, k=6)})
+                              "headlines": headlines(arts, k=6, start=a, end=b)})
         print(f"market {d.date()} {spx_ret[d]:+.1%}: {len(out['market'][-1]['headlines'])} headlines")
 
     # --- recent headlines: several companies per query, matched back by name -----------------
@@ -143,20 +155,12 @@ def main():
     names = {t: short_name(meta["names"][t]) for t in tickers}
     musts = {t: ([names[t].split()[0], t] if len(names[t].split()[0]) > 2 else [names[t], t])
              for t in tickers}
-    recent_arts = {t: [] for t in tickers}
-    for i in range(0, len(tickers), BATCH):
-        group = tickers[i:i + BATCH]
-        q = "(" + " OR ".join(f'"{names[t]}"' for t in group) + ") (shares OR stock OR investors)"
-        arts = gdelt(q, latest - pd.Timedelta(days=7), latest + pd.Timedelta(days=1), n=75)
-        for t in group:
-            recent_arts[t] = [a for a in arts
-                              if any(m.lower() in (a.get("title") or "").lower() for m in musts[t])]
-        print(f"recent batch {i // BATCH + 1}: {len(arts)} articles", flush=True)
+    week0, week1 = latest - pd.Timedelta(days=7), latest + pd.Timedelta(days=1)
 
     # --- each stock: worst day ----------------------------------------------------------------
     for i, t in enumerate(tickers, 1):
         name, must = names[t], musts[t]
-        q = f'"{name}" (shares OR stock OR investors)'
+        q = f'"{name}" stock'
         g = px[px["ticker"] == t].dropna(subset=["ret"])
         drops = []
         w = g.nsmallest(1, "ret")
@@ -164,10 +168,12 @@ def main():
             if row["ret"] > DROP_MIN:
                 continue
             d = row["date"]
-            arts = gdelt(q, d - pd.Timedelta(days=1), d + pd.Timedelta(days=1))
+            a, b = d - pd.Timedelta(days=1), d + pd.Timedelta(days=1)
+            arts = fetch(q, a, b)
             drops.append({"date": d.strftime("%Y-%m-%d"), "ret": float(row["ret"]),
-                          **context(t, d, float(row["ret"])), "headlines": headlines(arts, must)})
-        recent = headlines(recent_arts[t], must, k=6)
+                          **context(t, d, float(row["ret"])),
+                          "headlines": headlines(arts, must, start=a, end=b)})
+        recent = headlines(fetch(q, week0, week1), must, k=6, start=week0, end=week1)
         out["stocks"][t] = {"drops": drops, "recent": recent}
         print(f"[{i}/{len(tickers)}] {t}: {len(drops)} drop(s), "
               f"{sum(len(x['headlines']) for x in drops)} drop headlines, {len(recent)} recent",

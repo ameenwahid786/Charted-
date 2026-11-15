@@ -70,7 +70,7 @@ python src/01b_download_live.py  # needs internet: app snapshot prices to the la
                                  # (data/raw_live/ + one-minute bars); data/raw/ is untouched
 python src/08_app_data.py      # small precomputed app files -> data/app/ + results/thresholds_v3.json
 python src/09_backtest.py      # warnings-as-cash backtest -> results/backtest_*.csv
-python src/10_news.py          # needs internet, ~30 min: GDELT headlines around big drops
+python src/10_news.py          # needs internet, ~10 min: Google News headlines around big drops
 ```
 
 `requirements.txt` is what the web app needs; `pip install -r requirements-dev.txt` adds

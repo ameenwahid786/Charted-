@@ -5,6 +5,7 @@
 Reads only small precomputed files (data/app/, results/). It never trains a model,
 downloads prices or rebuilds the big parquet files.
 """
+import html as htmllib
 import json
 import sys
 from pathlib import Path
@@ -35,7 +36,7 @@ METHOD_STYLE = {  # name in results files -> (label, colour, dash)
     "200-day average rule": ("200-day average rule", C_MA, "solid"),
     "Model v1": ("Model v1 (first try)", C_V1, "dash"),
 }
-LEVEL = {"red": ("Warning", RED_TXT), "amber": ("Watch", YELLOW), "green": ("Stable", WHITE)}
+LEVEL = {"red": ("Warning", RED_TXT), "amber": ("Watch", YELLOW), "green": ("Stable", GREEN)}
 
 st.set_page_config(page_title="Charted · crash-risk early warning", layout="wide",
                    initial_sidebar_state="collapsed")
@@ -46,6 +47,9 @@ div[data-testid="stSidebarCollapsedControl"] {{display: none;}}
 .block-container {{padding-top: 0.6rem; max-width: 1200px;}}
 iframe {{display: block;}}
 h1 {{font-size: 1.9rem !important; letter-spacing: -0.015em;}}
+h2 {{font-size: 1.4rem !important; margin-top: 1.8rem !important; padding-top: 0.6rem !important;
+     border-top: 1px solid {LINE};}}
+h3 {{font-size: 1.1rem !important; color: {YELLOW} !important; margin-top: 0.8rem !important;}}
 h4 {{font-size: 1.05rem !important; font-weight: 600 !important; margin-top: 1.6rem;
      color: {WHITE};}}
 p, li {{color: {TEXT};}}
@@ -484,7 +488,9 @@ with nav_col:
 with search_col:
     st.selectbox("Search", TICKERS, index=None, key="_search", on_change=on_search,
                  format_func=label_of, label_visibility="collapsed",
-                 placeholder=f"Search {len(TICKERS)} stocks by ticker or company…")
+                 placeholder=f"Search {len(TICKERS)} stocks by ticker or company…",
+                 help="Type a company name (e.g. Apple) or ticker (AAPL) and pick it to open "
+                      "its page.")
 page = st.session_state["page"]
 
 
@@ -541,10 +547,13 @@ def page_watchlist():
          f"<b style='color:{WHITE}'>at least 10% below today's close at some point in the next "
          f"20 trading days</b> (about a month). A typical large US stock: "
          f"<b class='glow-w'>{pct(BASE)}</b>. Prices as of the {AS_OF} close.</p>")
+    html(f"<div class='muted' style='margin-bottom:0.3rem'>New here? Add or remove stocks "
+         f"below, click any ticker for its details, or read <b>How it works</b> (top menu) for a "
+         f"2-minute guide.</div>")
     st.session_state["_picks"] = st.session_state["my_picks"]
     st.multiselect("Edit watchlist", TICKERS, key="_picks", on_change=save_picks,
                    format_func=label_of, label_visibility="collapsed",
-                   placeholder="Add stocks to your watchlist…")
+                   placeholder="Add stocks to your watchlist… (type a name or ticker)")
     picks = st.session_state["my_picks"]
     q = quotes()
     if picks:
@@ -568,7 +577,7 @@ def page_watchlist():
         for t in ranked.index[::-1][:5]:
             compact_row(t, q.loc[t], latest.loc[t], "hi")
     with c2:
-        html(f"<div class='glow-w' style='font-weight:600; margin-bottom:0.3rem'>Most stable</div>")
+        html(f"<div class='up-big' style='font-weight:600; margin-bottom:0.3rem'>Most stable</div>")
         compact_header("lo")
         for t in ranked.index[:5]:
             compact_row(t, q.loc[t], latest.loc[t], "lo")
@@ -664,7 +673,7 @@ def daily_chart(t, p, rng):
                                 line=dict(color="#000", width=0.5)),
                     hovertemplate="A 10%+ drop followed<extra></extra>", row=1, col=1)
     # risk-status ribbon: one coloured cell per day (word in the hover, legend below)
-    ribbon = {"red": RED, "amber": "#b38a1a", "green": "#d9d4c7"}
+    ribbon = {"red": RED, "amber": "#b38a1a", "green": GREEN}
     for lvl in ["red", "amber", "green"]:
         d = h[h["level"] == lvl]
         word = LEVEL[lvl][0]
@@ -688,7 +697,7 @@ def daily_chart(t, p, rng):
                             view["date"].iloc[-1] + pd.Timedelta(days=1)])
     show(fig)
     html("<div class='muted' style='margin-top:-0.4rem'>The thin band under the price shows the "
-         "model's status each day (red = Warning, gold = Watch, white = Stable). White triangles "
+         "model's status each day (red = Warning, gold = Watch, green = Stable). White triangles "
          "mark days that were followed by a real 10%+ drop within 20 trading days.</div>")
 
 
@@ -720,7 +729,27 @@ def key_stats(p, r):
         ("Volatility (20 days, yearly)", f"{r['vol_20'] * np.sqrt(252) * 100:.0f}%"),
         ("RSI (14 days)", f"{r['rsi_14']:.0f}"),
     ]
-    return "".join(f"<div class='stat'><span>{k}</span><span>{v}</span></div>" for k, v in stats)
+    tips = {
+        "Previous close": "The price at the end of the previous trading day.",
+        "Open": "The first price of the latest trading day.",
+        "Day's range": "Lowest and highest price during the latest trading day.",
+        "52-week range": "Lowest and highest price over the past year.",
+        "Volume": "Shares traded in the latest day.",
+        "Avg. volume (3 months)": "Shares traded on an average day over the last 3 months.",
+        "50-day average": "Average closing price over the last 50 trading days.",
+        "200-day average": "Average closing price over the last 200 trading days. Below it = "
+                           "a classic sign of a downtrend.",
+        "Year to date": "Change since the last close of the previous year.",
+        "Below 1-year high": "How far the price is under its highest close of the past year.",
+        "Beta (60 days, vs S&P 500)": "1 = moves like the market, 2 = about twice as much, "
+                                      "below 1 = calmer than the market.",
+        "Volatility (20 days, yearly)": "How much the price jumps around, per year. 20% is calm "
+                                        "for a stock; 50%+ is very jumpy.",
+        "RSI (14 days)": "0-100. Above 70: mostly gains lately; below 30: mostly losses.",
+    }
+    return "".join(f"<div class='stat' title=\"{tips.get(k, 'Price change over this period.')}\">"
+                   f"<span style='cursor:help'>{k}</span><span>{v}</span></div>"
+                   for k, v in stats)
 
 
 def page_stock():
@@ -750,6 +779,8 @@ def page_stock():
                   on_click=toggle_watch, args=(t,), type="secondary" if inside else "primary")
 
     rng = st.radio("Range", list(RANGES), index=6, horizontal=True, key="_range",
+                   help="1H, 1D and 1W: minute-by-minute prices from the latest trading day and "
+                        "week. 1M to 3Y: daily closing prices.",
                    label_visibility="collapsed")
     if rng in INTRADAY:
         intraday_chart(t, rng, float(prev["close"]))
@@ -1084,15 +1115,28 @@ def load_news():
     return json.loads(path.read_text()) if path.exists() else None
 
 
-def headline_list(items, empty="No matching English headlines found for these dates."):
+def headline_list(items, empty="No matching English headlines found for these dates.",
+                  tag=None):
+    """Headlines with their publication date first. tag: optional ticker label per item."""
     if not items:
         html(f"<div class='muted'>{empty}</div>")
         return
     rows = []
     for a in items:
-        rows.append(f"<div class='why-row'><a href='{a['url']}' target='_blank' "
-                    f"style='color:{WHITE}; text-decoration:none'>{a['title']}</a>"
-                    f"<div class='muted'>{a['source']} · {pd.Timestamp(a['date']):%d %b %Y}</div></div>")
+        t = a.get("_t") if tag else None
+        chip = (f"<span class='num' style='color:{WHITE}; border:1px solid #2a2a2a; "
+                f"border-radius:999px; padding:0 0.45rem; margin-right:0.45rem; font-size:0.78rem'>"
+                f"{t}</span>" if t else "")
+        title = htmllib.escape(a["title"].replace("\u200b", "").strip())
+        url = htmllib.escape(a["url"] or "#", quote=True)
+        source = htmllib.escape(a["source"] or "")
+        rows.append(
+            f"<div class='why-row' style='display:flex; gap:1rem'>"
+            f"<div class='num' style='min-width:6.2rem; color:{YELLOW}; font-size:0.85rem; "
+            f"padding-top:0.1rem'>{pd.Timestamp(a['date']):%d %b %Y}</div>"
+            f"<div>{chip}<a href=\"{url}\" target='_blank' rel='noopener' style='color:{WHITE}; "
+            f"text-decoration:none'>{title}</a>"
+            f"<div class='muted'>{source}</div></div></div>")
     html("".join(rows))
 
 
@@ -1134,6 +1178,28 @@ def page_news():
         html("<div class='note'>News has not been downloaded yet (run src/10_news.py).</div>")
         return footer()
 
+    st.markdown(f"#### Latest headlines")
+    feed = [dict(a, _t=tk) for tk, v in news["stocks"].items() for a in v["recent"]
+            if "tokenized" not in a["title"].lower()]
+    feed.sort(key=lambda a: a["date"], reverse=True)
+    picks = st.session_state["my_picks"]
+    chosen, seen, per = [], set(), {}
+    for group, cap in [([a for a in feed if a["_t"] in picks], 2),
+                       ([a for a in feed if a["_t"] not in picks], 1)]:
+        for a in group:
+            if a["title"] in seen or per.get(a["_t"], 0) >= cap or len(chosen) >= 14:
+                continue
+            seen.add(a["title"])
+            per[a["_t"]] = per.get(a["_t"], 0) + 1
+            chosen.append(a)
+    if chosen:
+        d0, d1 = min(a["date"] for a in feed), max(a["date"] for a in feed)
+        html(f"<div class='muted'>Published {pd.Timestamp(d0):%d %b} – {pd.Timestamp(d1):%d %b %Y}"
+             f"{' · your watchlist first' if any(a['_t'] in picks for a in chosen) else ''} · "
+             f"newest first</div>")
+    headline_list(chosen, "No headlines found for this week.", tag=True)
+
+    st.markdown("#### Look up a stock")
     default = st.session_state.get("news_t") or st.session_state["detail"]
     st.session_state["_news_pick"] = default
     t = st.selectbox("Stock", TICKERS, key="_news_pick", format_func=label_of,
@@ -1199,74 +1265,233 @@ def page_news():
 
 
 # ==== page 4: how it works ================================================================
+GLOSSARY = [
+    ("10% drop chance", "The estimated chance that, at some point in the next 20 trading days "
+     "(about a month), the stock closes at least 10% below its latest close."),
+    ("Typical stock", "How often a 10% drop actually happened for a large US stock on an average "
+     "day in 2021–25: about {base}. Use it as the yardstick."),
+    ("Simple volatility rule", "The baseline we compete with: a textbook formula that turns the "
+     "last month's price swings into a drop chance."),
+    ("Previous close / Open", "The price at the end of the previous trading day / at the start "
+     "of the latest one."),
+    ("Day's range", "The lowest and highest price during the latest trading day."),
+    ("52-week range", "The lowest and highest price over the last year."),
+    ("Volume / Avg. volume", "How many shares traded in the latest day / on an average day over "
+     "the last three months. Unusually high volume often comes with news."),
+    ("50-day and 200-day average", "The average closing price over the last 50 or 200 trading "
+     "days. A price below its 200-day average is a classic sign of a downtrend."),
+    ("1-month, 3-month, 1-year return, year to date", "How much the price changed over that "
+     "period (dividend-adjusted)."),
+    ("Below 1-year high", "How far the price is under its highest close of the past year."),
+    ("Beta", "How much the stock tends to move when the whole market moves. 1 = like the "
+     "market; 2 = about twice as much; below 1 = calmer than the market."),
+    ("Volatility", "How much the price jumps around, expressed per year. 20% is calm for a "
+     "single stock; 50%+ is very jumpy."),
+    ("RSI", "Relative Strength Index, 0–100: above 70 means the last two weeks were mostly "
+     "gains, below 30 mostly losses."),
+    ("VIX", "The market's 'fear index', from S&P 500 option prices. Around 12–15 is calm, above "
+     "25 is nervous."),
+    ("PR-AUC", "Our main score: how well warnings rank the risky days above the safe ones, "
+     "from 0 to 1. Guessing scores about 0.12; higher is better."),
+    ("Precision / Recall", "Precision: of the warnings given, the share followed by a real 10% "
+     "drop. Recall: of the real 10% drops, the share that got a warning beforehand."),
+    ("Max drawdown", "The biggest fall from a peak to a later low."),
+]
+
+
+def guide_rows(items):
+    html("".join(f"<div class='why-row'><b>{k}</b><div style='margin-top:0.15rem'>{v}</div></div>"
+                 for k, v in items))
+
+
 def page_how():
     st.title("How it works")
+    html(f"<p class='lead' style='max-width:860px; font-size:1.08rem'>Charted estimates the chance "
+         f"that a large US stock <b style='color:{WHITE}'>drops 10% or more within the next month</b>, "
+         f"explains why in plain English, and shows how that compares with the typical stock and "
+         f"with a simple rule. It is a learning tool for beginners: it does not tell you to buy or "
+         f"sell.</p>")
+    html("<div class='muted'>On this page: "
+         "<a href='#quick-start' style='color:inherit'>Quick start</a> · "
+         "<a href='#colours-and-numbers' style='color:inherit'>Colours and numbers</a> · "
+         "<a href='#page-by-page' style='color:inherit'>Page by page</a> · "
+         "<a href='#glossary' style='color:inherit'>Glossary</a> · "
+         "<a href='#how-the-model-works' style='color:inherit'>How the model works</a> · "
+         "<a href='#how-we-tested-it' style='color:inherit'>How we tested it</a> · "
+         "<a href='#limitations' style='color:inherit'>Limitations</a> · "
+         "<a href='#questions' style='color:inherit'>Questions</a></div>")
+
+    st.header("Quick start", anchor="quick-start", divider=False)
+    c = st.columns(3, gap="large")
+    steps = [
+        ("1 · Find a stock", "Type a company name or ticker (e.g. <i>Apple</i> or <i>AAPL</i>) in "
+         "the search bar at the top right of any page. Or add stocks to your <b>Watchlist</b>."),
+        ("2 · Read the status", "Each stock shows its <b>10% drop chance</b> and a status: "
+         "<span class='glow-r'>Warning</span>, <span class='glow-y'>Watch</span> or "
+         "<span class='up-big'>Stable</span>. Compare it with the typical stock "
+         f"(<b>{pct(BASE)}</b>)."),
+        ("3 · Ask why", "On the stock's page, <b>Why?</b> lists what pushed the estimate up "
+         "or down. <b>News</b> shows what happened around its biggest falls."),
+    ]
+    for col, (h, b) in zip(c, steps):
+        col.markdown(f"<div style='border-top:2px solid {YELLOW}; padding-top:0.6rem'>"
+                     f"<div style='font-weight:600; color:{WHITE}; margin-bottom:0.3rem'>{h}</div>"
+                     f"<div style='color:{TEXT}'>{b}</div></div>", unsafe_allow_html=True)
+    b1, b2, _ = st.columns([1, 1, 3])
+    b1.button("Open my watchlist →", key="how_watch", type="tertiary",
+              on_click=lambda: st.session_state.update(page="Watchlist"))
+    b2.button("Try Apple's page →", key="how_aapl", type="tertiary", on_click=go_stock,
+              args=("AAPL",))
+
+    st.header("Colours and numbers", anchor="colours-and-numbers")
+    guide_rows([
+        (f"<span class='glow-r'>● Warning</span> — chance {pct(TH['red'], 1)} or more",
+         "Riskier than usual. This line was fixed using 2019–20 data so that the model warns as "
+         "often as the simple volatility rule did back then. It sits close to the typical "
+         f"stock's {pct(BASE)}, so Warning means 'at least average risk, often much more'."),
+        (f"<span class='glow-y'>● Watch</span> — {pct(TH['amber'], 1)} to {pct(TH['red'], 1)}",
+         "Some risk; keep an eye on it."),
+        (f"<span class='up-big'>● Stable</span> — below {pct(TH['amber'], 1)}",
+         "Among the calmest large US stocks right now."),
+        ("A percentage like 18%",
+         "Out of 100 situations that looked like today, roughly 18 were followed by a 10% drop "
+         "within a month. It is a chance, not a prediction: an 18% stock usually does <i>not</i> "
+         "drop 10%."),
+        (f"Price moves: <span class='up-big'>▲ green</span> · <span class='up'>▲ yellow</span> · "
+         f"<span class='down'>▼ red</span>",
+         "Up 2.5% or more · up less than 2.5% · down."),
+    ])
+
+    st.header("Page by page", anchor="page-by-page")
+    st.subheader("Watchlist")
+    guide_rows([
+        ("Your stocks", "Add stocks by typing in the box under the title; remove one with its ×. "
+         "Rows are sorted riskiest first. Click a ticker to open its page."),
+        ("Columns", "Price and the latest day's move, the 10% drop chance (with a bar), the "
+         "status, and what the simple volatility rule says for comparison."),
+        ("Across all stocks right now", f"The five riskiest and five steadiest of all "
+         f"{len(TICKERS)} stocks today."),
+    ])
+    st.subheader("Stock")
+    guide_rows([
+        ("Header", "Company, sector, latest price and the day's change. "
+         "<b>Add to watchlist</b> saves it to your list for this visit."),
+        ("Chart ranges", "<b>1H / 1D / 1W</b> show minute-by-minute prices for the latest hour, "
+         "day and week (US trading hours; the dotted line is the reference price). "
+         "<b>1M to 3Y</b> show daily closing prices."),
+        ("Coloured band under the price", "The model's status on each day: red Warning, gold "
+         "Watch, green Stable. Hover to see the exact chance."),
+        ("White triangles", "Days that really were followed by a 10%+ drop within 20 trading "
+         "days. Compare them with the band to see when the warnings were early, late or wrong."),
+        ("Crash risk and Why?", "The chance, the status, and the steps that build it: it starts "
+         "from what price swings alone suggest, then each ↑ or ↓ line shows a factor that raised "
+         "or lowered it, by how many percentage points. The steps add up to the final number."),
+        ("Key statistics", "The numbers you would find on any stock website (see the glossary "
+         "below; hover over a statistic for a short explanation)."),
+        ("Risk estimate over time", "Our model (yellow) against the simple rule (red) day by "
+         "day, with the Warning line dotted."),
+    ])
+    st.subheader("News")
+    guide_rows([
+        ("Latest headlines", f"Headlines from the week up to {AS_OF}, with the date each was "
+         "published; your watchlist's stocks come first. Click a headline to read it at the "
+         "original publisher."),
+        ("Look up a stock", "Its worst single day since 2023, explained from the data: was it "
+         "a <b>market-wide sell-off</b>, a <b>sector-wide fall</b> or <b>company-specific</b>? "
+         "What did the model say the day before? What happened over the next month? Plus the "
+         "headlines published around that day."),
+        ("Every stock's worst day", "All of them in one table, and how often the model was "
+         "already on Warning the day before."),
+    ])
+    st.subheader("Does it beat simple rules?")
+    guide_rows([
+        ("The proof", "Our model against the simple volatility rule and the 200-day average rule "
+         "on stocks it never saw while being built, year by year, with how sure we are."),
+        ("Stress test", "What would have happened if you sold every time a warning came on. "
+         "Honest result: you avoid the worst falls but miss most of the gains."),
+    ])
+
+    st.header("Glossary", anchor="glossary")
+    guide_rows([(k, v.format(base=pct(BASE))) for k, v in GLOSSARY])
+
+    st.header("How the model works", anchor="how-the-model-works")
     st.markdown(f"""
-#### The question we answer
-For a stock on a given day: **will its closing price, at any point in the next 20 trading days
-(about one month), be at least 10% below today's close?** We call that a "10% drop". On a
-typical large US stock this happened on about **{pct(BASE)}** of days in 2021–25.
+**The question.** For a stock on a given day: will its closing price, at any point in the next
+20 trading days, be at least 10% below today's close? On a typical large US stock this happened
+on about **{pct(BASE)}** of days in 2021–25.
 
-The app shows a **chance** (for example 18%), not a yes/no prediction. A higher chance means
-drops like this have been more common in situations that looked like today.
-
-#### What is volatility?
-Volatility measures how much a price jumps around from day to day. A stock that moves 3% a day
-is far more likely to fall 10% in a month than one that moves 0.5% a day. This simple idea is
-already a strong warning sign, so we use it as our main **baseline**:
-- *Volatility rule (chance)*: from the last 20 days' price swings, a standard formula gives the
-  chance of a 10% fall; we adjust it to match how often falls really happened in 2010–18.
-- *Volatility rule (yes/no)*: warn when the last 20 days' swings are bigger than on 80% of
-  days in 2010–18.
-
+**The simple rule (our main baseline).** A stock that moves 3% a day is far more likely to fall
+10% in a month than one that moves 0.5% a day. A standard formula turns the last 20 days' price
+swings into a drop chance, adjusted to match how often drops really happened in 2010–18. Its
+yes/no version warns when the last 20 days' swings are bigger than on 80% of days in 2010–18.
 Our second baseline is the classic **200-day average rule**: warn when the price is below its
-average of the last 200 trading days. We also compare with **never warning**.
+average of the last 200 trading days.
 
-#### Our model (v3): the simple rule plus learned corrections
-v3 starts from the volatility rule and lets a small, deliberately restrained machine-learning
-model (LightGBM, 54 tiny decision trees with 3 leaves each) nudge the chance up or down using
-16 signals: recent returns, how far the stock is below its 1-year high, how it ranks against
-other large US stocks today, trading volume, and market mood (VIX, S&P 500). On each stock's
-page, **Why?** shows the exact size of each nudge.
+**Our model (v3): the simple rule plus learned corrections.** v3 starts from the simple rule
+and lets a small, deliberately restrained machine-learning model (LightGBM: 54 tiny decision
+trees with 3 leaves each) nudge the chance up or down using 16 signals: recent returns, how far
+the stock is below its 1-year high, how it ranks against other large US stocks today, trading
+volume, and market mood (VIX, S&P 500). The **Why?** panel shows the exact size of each nudge.
+""")
 
-Warning levels, all fixed using 2019–20 data only:
-- **Warning**: chance ≥ {pct(TH['red'], 1)}. At this level v3 warned on the same share of
-  2019–20 days as the simple yes/no volatility rule.
-- **Watch**: chance ≥ {pct(TH['amber'], 1)} (twice that share of days).
-- **Stable**: below that.
+    st.header("How we tested it", anchor="how-we-tested-it")
+    st.markdown(f"""
+- **Past to train, future to test:** trained on 2010–18, every choice made on 2019–20, tested
+  on 2021–25, with 20-trading-day gaps so no answer leaks across.
+- **Stocks it never saw:** the main test uses 49 other large US stocks that played no part in
+  building it. A second test on 95 more stocks, written down in advance, confirmed the result.
+- **The right scores:** drops are rare, so a rule that never warns is 88% "accurate" and
+  useless. We report precision, recall and PR-AUC instead (see the glossary).
+- **No peeking:** nothing was tuned on test results; every threshold comes from 2019–20.
+- **Result:** v3 beats the simple volatility rule by a small, consistent margin and the 200-day
+  rule by a wide one. Details on **Does it beat simple rules?**.
+""")
 
-#### How we measured it (and kept it honest)
-- **Train on the past, test on the future:** trained on 2010–18, choices made on 2019–20
-  (validation), tested on 2021–25, with 20-trading-day gaps so no answer leaks across.
-- **Two fresh holdouts:** the main test uses 49 other large US stocks never used for anything
-  before v3 was frozen. A second, pre-registered test on 95 more stocks confirmed it.
-- **Precision** = of the warnings given, the share followed by a real 10% drop.
-  **Recall** = of the real 10% drops, the share that got a warning beforehand.
-  **PR-AUC** summarises both over every possible warning level (higher is better; guessing
-  scores about 0.12).
-- **Not accuracy:** drops are rare, so "never warn" is 88% accurate and completely useless.
-- Nothing was tuned on test or holdout results. Every threshold comes from 2019–20.
-
-#### Limitations (please read)
+    st.header("Limitations", anchor="limitations")
+    st.markdown(f"""
+- **Snapshot, not live:** prices end at the **{AS_OF}** close and the chances describe that
+  date. The clock at the top is your local time, not the data's time. The model and every test
+  result use data up to 27 Feb 2026; refreshing the app's prices did not change them.
+- **False alarms:** about 80% of warnings are *not* followed by a 10% drop. Selling on every
+  warning means selling too early and missing gains (see the stress test).
+- **Surprises are hard:** company-specific news, such as an earnings shock, often comes
+  without any warning in the prices.
 - **Survivorship bias:** we use today's large companies, which by definition survived. Some
-  stocks (EA, IPG, BK, MMC) dropped out of the free data source. Real-world risk may be higher.
-- **Overlapping labels:** neighbouring days share most of their 20-day future, so there are far
-  fewer truly independent examples than rows. We used a monthly block bootstrap for this.
-- **False alarms cost something:** most warnings (about 80%) are *not* followed by a 10% drop.
-  Acting on every warning can mean selling too early and missing gains (see the stress test).
-- **Data snapshot, not live:** prices end on **{AS_OF}**. The chances describe that date. The
-  model itself and every test result use data up to 27 Feb 2026 and were not changed when the
-  app's prices were refreshed.
-- **Headlines are context, not causes:** the News page shows what was published around a drop;
-  it cannot prove why a price fell.
-- **Small edge over the volatility rule:** consistent, but small. The volatility rule alone
-  already captures most of the signal; the 200-day rule is clearly weaker.
-- Large US stocks only; no news, earnings dates or fundamentals.
+  stocks (EA, IPG, BK, MMC) dropped out of the free data. Real-world risk may be higher.
+- **Overlapping days:** neighbouring days share most of their 20-day future, so there are far
+  fewer independent examples than rows; our confidence ranges account for this.
+- **Headlines are context, not causes:** the News page shows what was published around a
+  drop; it cannot prove why a price fell.
+- Large US stocks only; no fundamentals, earnings dates or news are used by the model.
+""")
 
-#### Sources
-Prices: Yahoo Finance via the `yfinance` library (daily prices, plus one-minute prices for
-the 1H / 1D / 1W charts). Headlines: the GDELT Project (gdeltproject.org). Tools: LightGBM, scikit-learn, pandas,
-Streamlit, Plotly. AI assistant: Claude (Anthropic) helped write code.
+    st.header("Questions", anchor="questions")
+    faqs = [
+        ("Should I sell when a stock shows Warning?", "This tool does not give buy or sell "
+         "advice. A Warning means a 10% drop is more likely than usual, not that it will happen. "
+         "Many people use it to size positions or to avoid buying right before a bumpy patch."),
+        ("Why are so many stocks on Warning or Watch?", "The levels are fixed, not graded on a "
+         "curve. When the whole market is jumpy, most stocks cross them; when it is calm, many "
+         "turn green."),
+        ("Is the price live?", f"No. It is the {AS_OF} close. The 1H / 1D / 1W charts show that "
+         "last trading day and week."),
+        ("Why does a stock have no headlines for its worst day?", "The news search only keeps "
+         "headlines that name the company, from the day before to the day after. Smaller stories "
+         "are sometimes missing; we show nothing rather than unrelated news."),
+        ("Why does the model sometimes warn after a fall has started?", "Falls make prices "
+         "jumpier, and jumpiness is the model's strongest signal, so warnings often arrive "
+         "during a fall rather than before it. That is a real limitation."),
+    ]
+    for q, a in faqs:
+        with st.expander(q):
+            html(f"<p>{a}</p>")
+
+    st.header("Sources", anchor="sources")
+    st.markdown("""
+Prices: Yahoo Finance via the `yfinance` library (daily prices, plus one-minute prices for the
+1H / 1D / 1W charts). Headlines: Google News search, linking to the original publishers.
+Tools: LightGBM, scikit-learn, pandas, Streamlit, Plotly. AI assistant: Claude (Anthropic)
+helped write code.
 """)
     footer()
 
