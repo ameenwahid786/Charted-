@@ -1,17 +1,17 @@
 [theme]
 base = "dark"
 backgroundColor = "#000000"
-secondaryBackgroundColor = "#111111"
-textColor = "#f0efec"
-primaryColor = "#3987e5"
+secondaryBackgroundColor = "#0c0c0c"
+textColor = "#f4f1ea"
+primaryColor = "#ffcf40"
 font = "IBM Plex Sans:https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap, sans-serif"
 headingFont = "IBM Plex Sans:https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap, sans-serif"
 codeFont = "IBM Plex Mono:https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap, monospace"
 headingFontWeights = [600, 600, 600]
-borderColor = "#262626"
-dataframeBorderColor = "#1f1f1f"
-dataframeHeaderBackgroundColor = "#0b0b0b"
-baseRadius = "0.6rem"
+borderColor = "#1f1f1f"
+dataframeBorderColor = "#161616"
+dataframeHeaderBackgroundColor = "#070707"
+baseRadius = "0.75rem"
 showWidgetBorder = true
 
 [client]

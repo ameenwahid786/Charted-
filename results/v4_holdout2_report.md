@@ -29,6 +29,6 @@ crash rate 12.5%. Thresholds fixed on validation.
 | Model v1 | 0.180 | 0.180 | 0.492 | 0.264 | 0.656 | 0.341 |
 | Never warn | 0.125 | 0 | 0 | 0 | 0.875 | 0 |
 
-Monthly block bootstrap (1000x): v3 beats the volatility rule in **100%** of resamples, gap
+Monthly block bootstrap (1000x): v3 beats the volatility rule in **99.8%** of resamples, gap
 +0.015 (95% CI +0.007 to +0.022). Years won **5 of 5**. Stocks won 39 of 95 (as on holdout
 1, the edge comes from ranking across stocks and dates, not from winning on every stock).

@@ -19,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 from common import (DATA_DIR, DROP, FEATURES, FEATURES_PATH, HOLDOUT_SECTORS, HOLDOUT_TICKERS,
-                    HORIZON, LABELS_PATH, RESULTS_DIR, TEST, TICKER_SECTOR, csv_path, load_all,
+                    HORIZON, LABELS_PATH, RESULTS_DIR, TEST, TICKER_SECTOR, TICKERS, csv_path, load_all,
                     load_panel, load_preds)
 from companies import COMPANY
 from model_v3 import V3_FEATURES, add_v3_features, load_v3, logit, vol_prob
@@ -103,6 +103,14 @@ def main():
     for c in ["close", "p_v3", "p_vol", "p_vol_raw", "label"]:
         hist[c] = hist[c].astype("float32")
     hist.to_parquet(APP_DIR / "app_history.parquet", index=False)
+
+    # daily OHLCV for the stock pages (key stats, price chart)
+    px = pd.concat([load_all(sorted(set(TICKERS))), hp], ignore_index=True)
+    px = px[px["date"] >= HISTORY_START][["date", "ticker", "open", "high", "low", "close",
+                                          "volume"]]
+    for c in ["open", "high", "low", "close", "volume"]:
+        px[c] = px[c].astype("float32")
+    px.to_parquet(APP_DIR / "app_prices.parquet", index=False)
 
     last = df.groupby("ticker")["date"].transform("max") == df["date"]
     cols = ["date", "ticker", "universe", "p_v3", "p_vol", "p_vol_raw", "level", "vol_rule_warn"]

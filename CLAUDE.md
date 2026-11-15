@@ -63,7 +63,7 @@ Original test (third look, disclosed): v3 0.204 vs 0.191. Accuracy trap: never-w
 **v4 attempt (pre-registered, `results/v4_preregistration.md`):** 4 candidates with Parkinson high-low / EWMA volatility
 starting points (`src/model_v4.py`, `src/06f_v4_experiments.py`); none beat v3 on validation (best 0.241 vs 0.251) → no v4,
 app stays on v3. **Holdout 2** (95 more unseen stocks, `HOLDOUT2_TICKERS`, MMC failed; `src/06g_holdout2.py`, run once):
-v3 0.183 vs vol rule 0.169, bootstrap 100% (CI +0.007 to +0.022), years 5/5, stocks 39/95, precision 0.182 vs 0.172,
+v3 0.183 vs vol rule 0.169, bootstrap 99.8% (CI +0.007 to +0.022), years 5/5, stocks 39/95, precision 0.182 vs 0.172,
 recall 0.524 vs 0.461. Report: `results/v4_holdout2_report.md`. Backtest (09): warnings cut max drawdown but lose to buy-and-hold.
 Feature importance (v1): vol_60 42%, vol_20 24%, drawdown_252 9%, beta_60 8%.
 

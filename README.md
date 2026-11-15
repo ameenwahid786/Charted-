@@ -62,6 +62,10 @@ python src/06c_experiments.py  # candidate models, compared on validation only
 python src/06d_train_v3.py     # train + save model v3 -> score_model_v3
 python src/01_download.py --holdout  # needs internet: 50 fresh holdout stocks
 python src/06e_holdout.py      # v3 vs volatility rule on the fresh holdout + bootstrap
+python src/06f_v4_experiments.py  # pre-registered v4 candidates, validation only (none beat v3)
+python src/01_download.py --holdout2  # needs internet: 96 more holdout stocks (pre-registered)
+python src/06g_holdout2.py     # second fresh test of v3 (run once)
+python src/06h_baselines.py    # v3 vs every baseline, year by year, all tests
 python src/08_app_data.py      # small precomputed app files -> data/app/ + results/thresholds_v3.json
 python src/09_backtest.py      # warnings-as-cash backtest -> results/backtest_*.csv
 ```
