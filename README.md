@@ -4,7 +4,7 @@
 **Track:** Finance
 **Team:** Anees Ur-Rehman, Muhammad Ameen Wahid
 ## The problem
-Many beginners buy or hold stocks without knowing how risky they are, which leaves their money exposed to losses they did not expect. Most risk tools are either too technical or give no explanation, so a beginner cannot tell which of their holdings is riskier than the others, leaving their investments vulnerable. For example, both of our parents have strayed away from investing into stocks due to the risk involved - they need a tool that simply and clearly explains the risk, as well as a visual presenation to aid this.
+Many beginners buy or hold stocks without knowing how risky they are, which leaves their money exposed to losses they did not expect. Most risk tools are either too technical or give no explanation, so a beginner cannot tell which of their holdings is riskier than the others, leaving their investments vulnerable. For example, both of our parents have strayed away from investing into stocks due to the risk involved - they need a tool that simply and clearly explains the risk, as well as a visual presentation to aid this.
 
 ## What we built
 
@@ -19,8 +19,20 @@ This project is a prototype and is not financial advice
 Our own idea
 
 ## How it works
-Data: which dataset, how many examples, how we cleaned it.
-Model: what we used and why.
+Data: Our data that we trained and tested our model on comes from Yahoo Finance, using the yfinance library, and includes daily stock prices - high, low, open, close, and volume. The stocks were taken from the S&P 500 index, VIX, and 99 large US stocks across 10 sectors, with a time period of 2 Jan 2009 - 27 Feb 2026. 
+
+The model was trained on stocks from 2010 - 2018 (222,156 examples), validated on stocks from 2019-2020(48,015 examples). The main test was carried out on data from 2021-2025(121,245 examples), and we conducted 2 additional tests on fresh test sets on stocks never encountered in training to see how the model performed. Both additional test sets were carried out on data from 2021-2025, with the stocks comprised of 49 other large US stocks for the first and 95 other additional stocks for the second (61,495 and 119,225 examples respectively). 
+
+We included several checks to clean the data and prevent againast leakage:
+   - Adjusted prices to prevent dividend and stock splits being interpreted as crashes
+   - Validated the download to check for missing information, negaitve prices, and late starting dates
+   - Included a warm up period (our data was collected from 2009 but we only started training on data from 2010 to ensure 1 year features have sufficient historical data)
+   - Ensured that the final 20 trading days of each stock were excluded because they don't have a complete 20 day prediction window
+   - Removed invalid values such as division by zero volume
+   - Added 20 day gaps between trianing, validation, and test data periods to prevent data leakage
+
+Model: We had 3 iterations of our model - our final model combines a simple volatility-based rule with a small LightGBM model to help learn corrections to its predictions. The volatility rule estimates the probability of a 10% drop, and the LightGBM model adjusts this probability upwards or downwards based on 16 additional signals. We chose 
+
 ## Results
 Our baseline scored X. Our model scored Y on held-out test data.
 Where it fails, and why we think so.
