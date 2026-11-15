@@ -1,0 +1,9 @@
+{
+  "red": 0.11579761724777067,
+  "amber": 0.0499804289932458,
+  "val_warn_share_red": 0.38879516817661147,
+  "val_warn_share_amber": 0.7775903363532229,
+  "vol_rule_cut_vol20": 0.01813355806851012,
+  "base_rate_test": 0.11899875246488792,
+  "note": "Fixed on validation 2019-20. red = v3 warns on the same share of validation days as the volatility rule (vol_20 above the training 80th percentile); amber = twice that share. Never chosen using test or holdout data."
+}
