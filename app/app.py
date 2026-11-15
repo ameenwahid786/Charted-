@@ -195,7 +195,9 @@ def html(s):
 
 def footer():
     html(f'<div class="footer">{DISCLAIMER} Prices are a snapshot ({AS_OF} close), not live, '
-         f'and are adjusted for dividends and splits.</div>')
+         f'and are adjusted for dividends and splits.'
+         f'<div style="margin-top:0.4rem">Created by <b style="color:{WHITE}">Ameen Wahid</b> and '
+         f'<b style="color:{WHITE}">Anees Ur-Rehman</b>.</div></div>')
 
 
 def pct(x, digits=0):
