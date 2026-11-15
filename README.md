@@ -49,6 +49,7 @@ python src/02_labels.py     # crash labels + crash rate per year
 python src/03_features.py   # 16 past-only features + leak test (must PASS)
 python src/04_split.py      # train 2010-18 / val 2019-20 / test 2021-25
 python src/05_baselines.py  # baseline scores -> data/preds.parquet (val results only)
+python src/06_model.py      # LightGBM, tuned on val -> score_model in preds.parquet
 ```
 
 ## Loading data in other modules

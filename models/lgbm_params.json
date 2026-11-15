@@ -1,0 +1,32 @@
+{
+  "objective": "binary",
+  "learning_rate": 0.03,
+  "n_estimators": 55,
+  "subsample": 0.8,
+  "subsample_freq": 1,
+  "colsample_bytree": 0.8,
+  "reg_lambda": 1.0,
+  "random_state": 42,
+  "verbose": -1,
+  "n_jobs": -1,
+  "num_leaves": 7,
+  "min_child_samples": 1000,
+  "features": [
+    "ret_5",
+    "ret_20",
+    "ret_60",
+    "vol_20",
+    "vol_60",
+    "vol_ratio_20_60",
+    "dist_ma50",
+    "dist_ma200",
+    "drawdown_252",
+    "rsi_14",
+    "volume_ratio_20",
+    "vix",
+    "vix_chg_5",
+    "mkt_ret_20",
+    "mkt_vol_20",
+    "beta_60"
+  ]
+}
