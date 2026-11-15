@@ -4,7 +4,7 @@
 **Track:** Finance
 **Team:** Anees Ur-Rehman, Muhammad Ameen Wahid
 ## The problem
-Many beginners buy or hold stocks without knowing how risky they are, which leaves their money exposed to losses they did not expect. Most risk tools are either too technical or give no explanation, so a beginner cannot tell which of their holdings is riskier than the others, leaving their investments vulnerable.
+Many beginners buy or hold stocks without knowing how risky they are, which leaves their money exposed to losses they did not expect. Most risk tools are either too technical or give no explanation, so a beginner cannot tell which of their holdings is riskier than the others, leaving their investments vulnerable. For example, both of our parents have strayed away from investing into stocks due to the risk involved - they need a tool that simply and clearly explains the risk, as well as a visual presenation to aid this.
 
 ## What we built
 
@@ -13,6 +13,10 @@ A beginner enters a stock they plan to hold or buy. The tool returns the estimat
 We compare our model against a simple baseline, a rule that warns when a stock’s 20-day volatility is in the top 20%, to see which predicts these drops better, using a PR-AUC.
 
 This project is a prototype and is not financial advice
+
+# What we added
+
+Our own idea
 
 ## How it works
 Data: which dataset, how many examples, how we cleaned it.
